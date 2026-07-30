@@ -1,0 +1,634 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { prisma } from "./prisma";
+import {
+  DEFAULT_GEAR_CATEGORIES,
+  generateTripCode,
+  getCar,
+  getGearCategories,
+  getParticipant,
+  getParticipantByUser,
+  getParticipants,
+  getTent,
+  getTripByCode,
+  getTripById,
+  getUserByPhone,
+  createUser,
+  normalizePhone,
+} from "./db";
+import { isThemeId } from "./themes";
+import { clearSession, requireUser, tripIdentity, writeSession } from "./session";
+
+function refresh() {
+  revalidatePath("/", "layout");
+}
+
+// ---------- Auth (AUTH-10/11) ----------
+
+export async function loginWithPhone(formData: FormData) {
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  if (phone.replace(/\D/g, "").length < 8) {
+    redirect("/login?error=phone");
+  }
+  const user = await getUserByPhone(phone);
+  if (user) {
+    await writeSession({ uid: user.id });
+    redirect("/");
+  }
+  redirect(`/login?step=name&phone=${encodeURIComponent(phone)}`);
+}
+
+export async function registerUser(formData: FormData) {
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  if (phone.replace(/\D/g, "").length < 8) redirect("/login?error=phone");
+
+  const back = (error: string) => {
+    const params = new URLSearchParams({ step: "name", phone, error });
+    if (firstName) params.set("firstName", firstName);
+    if (lastName) params.set("lastName", lastName);
+    if (email) params.set("email", email);
+    redirect(`/login?${params.toString()}`);
+  };
+  if (!firstName || !lastName) back("name");
+  if (!/^\S+@\S+\.\S+$/.test(email)) back("email");
+
+  const user =
+    (await getUserByPhone(phone)) ??
+    (await createUser({ phone, firstName, lastName, email }));
+  await writeSession({ uid: user.id });
+  redirect("/");
+}
+
+export async function logout() {
+  await clearSession();
+  redirect("/login");
+}
+
+// ---------- Voyages (TRIP-01..04) ----------
+
+export async function submitTripCode(formData: FormData) {
+  const user = await requireUser();
+  const code = String(formData.get("code") ?? "").trim();
+  const trip = code ? await getTripByCode(code) : null;
+  if (!trip) redirect("/?error=code");
+  if (await getParticipantByUser(trip.id, user.id)) redirect(`/t/${trip.id}`);
+  redirect(`/join?code=${encodeURIComponent(trip.accessCode)}`);
+}
+
+export async function claimParticipant(formData: FormData) {
+  const user = await requireUser();
+  const code = String(formData.get("code") ?? "");
+  const pid = Number(formData.get("pid"));
+  const trip = await getTripByCode(code);
+  if (!trip) redirect("/?error=code");
+  if (await getParticipantByUser(trip.id, user.id)) redirect(`/t/${trip.id}`);
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== trip.id || p.userId !== null) {
+    redirect(`/join?code=${encodeURIComponent(code)}&error=taken`);
+  }
+  // updateMany + condition userId=null : imperméable à deux réclamations simultanées
+  const claimed = await prisma.participant.updateMany({
+    where: { id: p.id, userId: null },
+    data: { userId: user.id, phone: user.phone, email: user.email },
+  });
+  if (claimed.count === 0) {
+    redirect(`/join?code=${encodeURIComponent(code)}&error=taken`);
+  }
+  refresh();
+  redirect(`/t/${trip.id}`);
+}
+
+export async function joinAsNewParticipant(formData: FormData) {
+  const user = await requireUser();
+  const code = String(formData.get("code") ?? "");
+  const trip = await getTripByCode(code);
+  if (!trip) redirect("/?error=code");
+  if (await getParticipantByUser(trip.id, user.id)) redirect(`/t/${trip.id}`);
+  if ((await getParticipants(trip.id)).length >= trip.capacity) {
+    redirect(`/join?code=${encodeURIComponent(code)}&error=full`);
+  }
+  await prisma.participant.create({
+    data: {
+      tripId: trip.id,
+      userId: user.id,
+      name: user.firstName,
+      phone: user.phone,
+      email: user.email,
+    },
+  });
+  refresh();
+  redirect(`/t/${trip.id}`);
+}
+
+export async function createTrip(formData: FormData) {
+  const user = await requireUser();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) redirect("/new?error=name");
+  const location = String(formData.get("location") ?? "").trim();
+  const startDate = String(formData.get("startDate") ?? "").trim();
+  const endDate = String(formData.get("endDate") ?? "").trim();
+  const meetingPoint = String(formData.get("meetingPoint") ?? "").trim();
+  const capacityRaw = Number(formData.get("capacity"));
+  const capacity = capacityRaw >= 1 ? capacityRaw : 10;
+
+  const trip = await prisma.trip.create({
+    data: {
+      name,
+      location,
+      startDate,
+      endDate,
+      meetingPoint,
+      capacity,
+      accessCode: await generateTripCode(),
+      // Le créateur devient l'admin du voyage (TRIP-04)
+      participants: {
+        create: {
+          userId: user.id,
+          role: "admin",
+          name: user.firstName,
+          phone: user.phone,
+          email: user.email,
+        },
+      },
+      gearCategories: { create: DEFAULT_GEAR_CATEGORIES.map((cat) => ({ name: cat })) },
+    },
+  });
+  refresh();
+  redirect(`/t/${trip.id}`);
+}
+
+// ---------- Administration (ADM-02..06) ----------
+
+async function requireAdmin(tripId: number) {
+  const identity = await tripIdentity(tripId);
+  if (!identity || identity.role !== "admin") return null;
+  return identity;
+}
+
+export async function updateTripSettings(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const capacity = Number(formData.get("capacity"));
+  if (!name || !(capacity >= 1)) return;
+  await prisma.trip.update({ where: { id: tripId }, data: { name, capacity } });
+  refresh();
+}
+
+export async function setTripTheme(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const theme = String(formData.get("theme") ?? "");
+  if (!isThemeId(theme)) return;
+  await prisma.trip.update({ where: { id: tripId }, data: { theme } });
+  refresh();
+}
+
+export async function adminActAs(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await requireAdmin(tripId);
+  if (!identity) return;
+  const pid = Number(formData.get("pid"));
+  await writeSession({
+    uid: identity.user.id,
+    actAs: pid > 0 && pid !== identity.participant.id ? pid : undefined,
+  });
+  refresh();
+}
+
+export async function updateTripToggles(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const flag = (name: string) => Boolean(formData.get(name));
+  await prisma.trip.update({
+    where: { id: tripId },
+    data: {
+      allowMemberCars: flag("allowMemberCars"),
+      allowMemberTents: flag("allowMemberTents"),
+      pageCarpool: flag("pageCarpool"),
+      pageMeals: flag("pageMeals"),
+      pageTents: flag("pageTents"),
+      pageGear: flag("pageGear"),
+      requireReaction: flag("requireReaction"),
+    },
+  });
+  refresh();
+}
+
+// Multi-admins : un admin peut en nommer un autre ; il ne peut pas se révoquer lui-même
+// (garantit qu'un voyage garde toujours au moins un admin).
+
+export async function promoteToAdmin(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const pid = Number(formData.get("pid"));
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== tripId) return;
+  await prisma.participant.update({ where: { id: pid }, data: { role: "admin" } });
+  refresh();
+}
+
+export async function demoteAdmin(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await requireAdmin(tripId);
+  if (!identity) return;
+  const pid = Number(formData.get("pid"));
+  if (pid === identity.participant.id) return; // pas soi-même
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== tripId) return;
+  await prisma.participant.update({ where: { id: pid }, data: { role: "participant" } });
+  refresh();
+}
+
+// Voitures/tentes : déclarées par les participants (si autorisé) ou créées par l'admin.
+// Le propriétaire (ownerId) et l'admin peuvent modifier/supprimer.
+
+export async function declareCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const trip = await getTripById(tripId);
+  if (!trip || (!trip.allowMemberCars && identity.role !== "admin")) return;
+  if (identity.effective.carId) return; // déjà dans une voiture
+  const departPlace = String(formData.get("departPlace") ?? "").trim();
+  const departTime = String(formData.get("departTime") ?? "").trim();
+  const seats = Number(formData.get("seats"));
+  if (!(seats >= 1)) return;
+  const label =
+    String(formData.get("label") ?? "").trim() || `Voiture de ${identity.effective.name}`;
+  const car = await prisma.car.create({
+    data: { tripId, ownerId: identity.effective.id, label, departPlace, departTime, seats },
+  });
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { carId: car.id },
+  });
+  refresh();
+}
+
+export async function adminAddCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const label = String(formData.get("label") ?? "").trim();
+  const departPlace = String(formData.get("departPlace") ?? "").trim();
+  const departTime = String(formData.get("departTime") ?? "").trim();
+  const seats = Number(formData.get("seats"));
+  if (!label || !(seats >= 1)) return;
+  await prisma.car.create({ data: { tripId, label, departPlace, departTime, seats } });
+  refresh();
+}
+
+export async function updateCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const carId = Number(formData.get("carId"));
+  const car = await getCar(carId);
+  if (!car || car.tripId !== tripId) return;
+  if (identity.role !== "admin" && car.ownerId !== identity.effective.id) return;
+  const label = String(formData.get("label") ?? "").trim();
+  const departPlace = String(formData.get("departPlace") ?? "").trim();
+  const departTime = String(formData.get("departTime") ?? "").trim();
+  const seats = Number(formData.get("seats"));
+  if (!label || !(seats >= 1)) return;
+  await prisma.car.update({
+    where: { id: carId },
+    data: { label, departPlace, departTime, seats },
+  });
+  refresh();
+}
+
+export async function deleteCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const carId = Number(formData.get("carId"));
+  const car = await getCar(carId);
+  if (!car || car.tripId !== tripId) return;
+  if (identity.role !== "admin" && car.ownerId !== identity.effective.id) return;
+  // La FK participant.carId est en SetNull : les occupants sont libérés automatiquement
+  await prisma.car.delete({ where: { id: carId } });
+  refresh();
+}
+
+export async function declareTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const trip = await getTripById(tripId);
+  if (!trip || (!trip.allowMemberTents && identity.role !== "admin")) return;
+  if (identity.effective.tentId) return; // déjà dans une tente
+  const capacity = Number(formData.get("capacity"));
+  if (!(capacity >= 1)) return;
+  const label =
+    String(formData.get("label") ?? "").trim() || `Tente de ${identity.effective.name}`;
+  const tent = await prisma.tent.create({
+    data: { tripId, ownerId: identity.effective.id, label, capacity },
+  });
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { tentId: tent.id },
+  });
+  refresh();
+}
+
+export async function adminAddTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const label = String(formData.get("label") ?? "").trim();
+  const capacity = Number(formData.get("capacity"));
+  if (!label || !(capacity >= 1)) return;
+  await prisma.tent.create({ data: { tripId, label, capacity } });
+  refresh();
+}
+
+export async function updateTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const tentId = Number(formData.get("tentId"));
+  const tent = await getTent(tentId);
+  if (!tent || tent.tripId !== tripId) return;
+  if (identity.role !== "admin" && tent.ownerId !== identity.effective.id) return;
+  const label = String(formData.get("label") ?? "").trim();
+  const capacity = Number(formData.get("capacity"));
+  if (!label || !(capacity >= 1)) return;
+  await prisma.tent.update({ where: { id: tentId }, data: { label, capacity } });
+  refresh();
+}
+
+export async function deleteTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const tentId = Number(formData.get("tentId"));
+  const tent = await getTent(tentId);
+  if (!tent || tent.tripId !== tripId) return;
+  if (identity.role !== "admin" && tent.ownerId !== identity.effective.id) return;
+  await prisma.tent.delete({ where: { id: tentId } });
+  refresh();
+}
+
+// ---------- Thème clair/sombre (préférence utilisateur, UX-02) ----------
+
+export async function toggleTheme() {
+  const store = await cookies();
+  const current = store.get("theme")?.value ?? "light";
+  store.set("theme", current === "dark" ? "light" : "dark", { maxAge: 60 * 60 * 24 * 365 });
+  refresh();
+}
+
+// ---------- Annonces ----------
+
+export async function publishAnnouncement(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await requireAdmin(tripId);
+  if (!identity) return;
+  const content = String(formData.get("content") ?? "").trim();
+  if (!content) return;
+  const authorLabel = identity.isImpersonating
+    ? `${identity.user.firstName} (pour ${identity.effective.name})`
+    : `${identity.user.firstName} (admin)`;
+  await prisma.announcement.create({
+    data: { tripId, content, authorLabel, createdAt: new Date().toISOString() },
+  });
+  // ANN-05 — destinataires : le courriel du compte lié, sinon celui saisi par l'admin.
+  // L'envoi réel (fournisseur SMTP) reste à brancher ; en attendant il est journalisé.
+  const recipients = await prisma.participant.findMany({
+    where: { tripId, isActive: true },
+    include: { user: { select: { email: true } } },
+  });
+  const emails = new Set(
+    recipients.map((p) => p.user?.email ?? p.email).filter((e): e is string => Boolean(e))
+  );
+  for (const email of emails) {
+    console.log(`[EMAIL] À: ${email} — Nouvelle annonce: ${content.slice(0, 60)}...`);
+  }
+  refresh();
+}
+
+export async function reactToAnnouncement(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const announcementId = Number(formData.get("announcementId"));
+  const emoji = String(formData.get("emoji") ?? "👍");
+  const announcement = await prisma.announcement.findUnique({
+    where: { id: announcementId },
+  });
+  if (!announcement || announcement.tripId !== tripId) return;
+  await prisma.reaction.upsert({
+    where: {
+      announcementId_participantId: { announcementId, participantId: identity.effective.id },
+    },
+    update: { emoji },
+    create: {
+      announcementId,
+      participantId: identity.effective.id,
+      emoji,
+      createdAt: new Date().toISOString(),
+    },
+  });
+  refresh();
+}
+
+// ---------- Participants ----------
+
+export async function confirmParticipant(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const pid = Number(formData.get("pid"));
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== tripId) return;
+  await prisma.participant.update({
+    where: { id: pid },
+    data: { isConfirmed: true, confirmedBy: identity.effective.name },
+  });
+  refresh();
+}
+
+export async function updateDietary(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const dietary = String(formData.get("dietary") ?? "").trim();
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { dietary },
+  });
+  refresh();
+}
+
+export async function addParticipant(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const trip = await getTripById(tripId);
+  if (!trip) return;
+  if ((await getParticipants(tripId)).length >= trip.capacity) return; // limite atteinte
+  await prisma.participant.create({ data: { tripId, name } });
+  refresh();
+}
+
+export async function removeParticipant(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const pid = Number(formData.get("pid"));
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== tripId || p.role === "admin") return;
+  // Soft-delete (D-P2-04)
+  await prisma.participant.update({ where: { id: pid }, data: { isActive: false } });
+  refresh();
+}
+
+// ---------- Covoiturage (CARP-02) ----------
+
+export async function joinCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const carId = Number(formData.get("carId"));
+  const car = await getCar(carId);
+  if (!car || car.tripId !== tripId) return;
+  const occupants = await prisma.participant.count({ where: { carId, isActive: true } });
+  if (occupants >= car.seats) return; // complet
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { carId },
+  });
+  refresh();
+}
+
+export async function leaveCar(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const car = identity.effective.carId ? await getCar(identity.effective.carId) : null;
+  if (car && car.ownerId === identity.effective.id) {
+    // Le propriétaire annule sa voiture : tous les occupants sont libérés (FK SetNull)
+    await prisma.car.delete({ where: { id: car.id } });
+  } else {
+    await prisma.participant.update({
+      where: { id: identity.effective.id },
+      data: { carId: null },
+    });
+  }
+  refresh();
+}
+
+// ---------- Repas ----------
+
+export async function saveMeal(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const carId = Number(formData.get("carId"));
+  const car = await getCar(carId);
+  if (!car || car.tripId !== tripId) return;
+  if (identity.effective.carId !== carId && identity.role !== "admin") return;
+  const menu = String(formData.get("menu") ?? "");
+  const shopping = String(formData.get("shopping") ?? "");
+  await prisma.car.update({ where: { id: carId }, data: { menu, shopping } });
+  refresh();
+}
+
+// ---------- Tentes (TENT-01 rev) ----------
+
+export async function joinTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const tentId = Number(formData.get("tentId"));
+  const tent = await getTent(tentId);
+  if (!tent || tent.tripId !== tripId) return;
+  const occupants = await prisma.participant.count({ where: { tentId, isActive: true } });
+  if (occupants >= tent.capacity) return;
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { tentId },
+  });
+  refresh();
+}
+
+export async function leaveTent(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const tent = identity.effective.tentId ? await getTent(identity.effective.tentId) : null;
+  if (tent && tent.ownerId === identity.effective.id) {
+    // Le propriétaire retire sa tente : tous les occupants sont libérés (FK SetNull)
+    await prisma.tent.delete({ where: { id: tent.id } });
+  } else {
+    await prisma.participant.update({
+      where: { id: identity.effective.id },
+      data: { tentId: null },
+    });
+  }
+  refresh();
+}
+
+// ---------- Matos (MAT-01..04) ----------
+
+export async function addGearCategory(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const exists = await prisma.gearCategory.findFirst({
+    where: { tripId, name: { equals: name, mode: "insensitive" } },
+  });
+  if (exists) return;
+  await prisma.gearCategory.create({ data: { tripId, name } });
+  refresh();
+}
+
+export async function addGearItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const categoryId = Number(formData.get("categoryId"));
+  const qtyRaw = Number(formData.get("qtyRequired"));
+  const qtyRequired = qtyRaw >= 1 ? qtyRaw : 1;
+  if (!name) return;
+  const category = (await getGearCategories(tripId)).find((c) => c.id === categoryId);
+  if (!category) return;
+  await prisma.gearItem.create({
+    data: { tripId, categoryId, name, qtyRequired, createdById: identity.effective.id },
+  });
+  refresh();
+}
+
+export async function setGearClaim(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const itemId = Number(formData.get("itemId"));
+  const qty = Number(formData.get("qty"));
+  if (!(qty >= 0)) return;
+  const item = await prisma.gearItem.findUnique({ where: { id: itemId } });
+  if (!item || item.tripId !== tripId) return;
+  if (qty === 0) {
+    await prisma.gearClaim.deleteMany({
+      where: { itemId, participantId: identity.effective.id },
+    });
+  } else {
+    await prisma.gearClaim.upsert({
+      where: {
+        itemId_participantId: { itemId, participantId: identity.effective.id },
+      },
+      update: { qty },
+      create: { itemId, participantId: identity.effective.id, qty },
+    });
+  }
+  refresh();
+}

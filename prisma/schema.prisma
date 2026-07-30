@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int    @id @default(autoincrement())
+  phone     String @unique
+  firstName String
+  lastName  String
+  email     String
+
+  participants Participant[]
+
+  @@map("user")
+}
+
+model Trip {
+  id           Int    @id @default(autoincrement())
+  name         String
+  location     String @default("")
+  startDate    String @default("")
+  endDate      String @default("")
+  meetingPoint String @default("")
+  transport    String @default("")
+  capacity     Int    @default(10)
+  accessCode   String @unique
+  theme        String @default("foret")
+
+  /// Les participants peuvent déclarer leurs voitures/tentes (sinon admin seulement)
+  allowMemberCars  Boolean @default(true)
+  allowMemberTents Boolean @default(true)
+
+  /// Pages du voyage activables/désactivables par l'admin
+  pageCarpool Boolean @default(true)
+  pageMeals   Boolean @default(true)
+  pageTents   Boolean @default(true)
+  pageGear    Boolean @default(true)
+
+  /// Réaction emoji obligatoire aux annonces (sinon pas de bandeau de rappel)
+  requireReaction Boolean @default(true)
+
+  participants   Participant[]
+  announcements  Announcement[]
+  cars           Car[]
+  tents          Tent[]
+  gearCategories GearCategory[]
+  gearItems      GearItem[]
+
+  @@map("trip")
+}
+
+model Participant {
+  id          Int     @id @default(autoincrement())
+  tripId      Int
+  userId      Int?
+  role        String  @default("participant")
+  name        String
+  phone       String?
+  email       String?
+  dietary     String  @default("")
+  isConfirmed Boolean @default(false)
+  confirmedBy String?
+  isActive    Boolean @default(true)
+  carId       Int?
+  tentId      Int?
+
+  trip Trip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+  car  Car?  @relation("CarOccupants", fields: [carId], references: [id], onDelete: SetNull)
+  tent Tent? @relation("TentOccupants", fields: [tentId], references: [id], onDelete: SetNull)
+
+  ownedCars  Car[]        @relation("CarOwner")
+  ownedTents Tent[]       @relation("TentOwner")
+  reactions  Reaction[]
+  gearClaims GearClaim[]
+
+  @@unique([tripId, userId])
+  @@map("participant")
+}
+
+model Announcement {
+  id          Int    @id @default(autoincrement())
+  tripId      Int
+  content     String
+  authorLabel String
+  createdAt   String
+
+  trip      Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
+
+  @@map("announcement")
+}
+
+model Reaction {
+  announcementId Int
+  participantId  Int
+  emoji          String
+  createdAt      String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  participant  Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, participantId])
+  @@map("reaction")
+}
+
+model Car {
+  id          Int    @id @default(autoincrement())
+  tripId      Int
+  /// Participant qui a déclaré la voiture (null = créée par l'admin)
+  ownerId     Int?
+  label       String @default("")
+  departPlace String @default("")
+  departTime  String @default("")
+  /// Places totales (conducteur inclus)
+  seats       Int
+  menu        String @default("")
+  shopping    String @default("")
+
+  trip      Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  owner     Participant? @relation("CarOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  occupants Participant[] @relation("CarOccupants")
+
+  @@map("car")
+}
+
+model Tent {
+  id       Int    @id @default(autoincrement())
+  tripId   Int
+  /// Participant qui a déclaré la tente (null = créée par l'admin)
+  ownerId  Int?
+  label    String @default("")
+  capacity Int
+
+  trip      Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  owner     Participant?  @relation("TentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  occupants Participant[] @relation("TentOccupants")
+
+  @@map("tent")
+}
+
+model GearCategory {
+  id     Int    @id @default(autoincrement())
+  tripId Int
+  name   String
+
+  trip  Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items GearItem[]
+
+  @@map("gear_category")
+}
+
+model GearItem {
+  id          Int    @id @default(autoincrement())
+  tripId      Int
+  categoryId  Int
+  name        String
+  qtyRequired Int    @default(1)
+  createdById Int?
+
+  trip     Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  category GearCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  claims   GearClaim[]
+
+  @@map("gear_item")
+}
+
+model GearClaim {
+  itemId        Int
+  participantId Int
+  qty           Int @default(1)
+
+  item        GearItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, participantId])
+  @@map("gear_claim")
+}
