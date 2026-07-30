@@ -7,7 +7,16 @@ import {
   getTripById,
 } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { addGearCategory, addGearItem, setGearClaim } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import {
+  addGearCategory,
+  addGearItem,
+  deleteGearCategory,
+  deleteGearItem,
+  setGearClaim,
+  updateGearCategory,
+  updateGearItem,
+} from "@/lib/actions";
 
 export default async function GearPage({
   params,
@@ -67,10 +76,46 @@ export default async function GearPage({
 
       {categories.map((cat) => {
         const catItems = items.filter((i) => i.categoryId === cat.id);
-        if (catItems.length === 0) return null;
+        const isAdmin = identity.role === "admin";
+        // Catégories vides : masquées aux participants, visibles à l'admin pour gestion
+        if (catItems.length === 0 && !isAdmin) return null;
         return (
           <div key={cat.id} className="flex flex-col gap-2">
-            <h2 className="font-bold text-sm uppercase tracking-wide muted">{cat.name}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-sm uppercase tracking-wide muted">{cat.name}</h2>
+              {isAdmin && (
+                <details className="text-xs">
+                  <summary className="muted cursor-pointer select-none">✏️</summary>
+                  <div className="flex flex-col items-end gap-2 mt-2">
+                    <form action={updateGearCategory} className="flex gap-2">
+                      <input type="hidden" name="tripId" value={tripId} />
+                      <input type="hidden" name="categoryId" value={cat.id} />
+                      <input
+                        name="name"
+                        className="input !py-1"
+                        defaultValue={cat.name}
+                        required
+                      />
+                      <button className="btn-ghost !py-1 shrink-0">Renommer</button>
+                    </form>
+                    {catItems.length === 0 ? (
+                      <form action={deleteGearCategory}>
+                        <input type="hidden" name="tripId" value={tripId} />
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <button
+                          className="btn-ghost !py-1"
+                          style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                        >
+                          Supprimer la catégorie
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="muted">Videz la catégorie pour la supprimer.</span>
+                    )}
+                  </div>
+                </details>
+              )}
+            </div>
             {catItems.map((item) => {
               const itemClaims = claims.filter((c) => c.itemId === item.id);
               const taken = itemClaims.reduce((sum, c) => sum + c.qty, 0);
@@ -120,6 +165,57 @@ export default async function GearPage({
                     />
                     <button className="btn-ghost !py-1 text-xs shrink-0">OK</button>
                   </form>
+                  {(isAdmin || item.createdById === me.id) && (
+                    <details className="text-xs">
+                      <summary className="muted cursor-pointer select-none">
+                        ✏️ Modifier / supprimer
+                      </summary>
+                      <div className="flex flex-col gap-2 mt-2">
+                        <form action={updateGearItem} className="flex flex-col gap-2">
+                          <input type="hidden" name="tripId" value={tripId} />
+                          <input type="hidden" name="itemId" value={item.id} />
+                          <input
+                            name="name"
+                            className="input !py-1"
+                            defaultValue={item.name}
+                            required
+                          />
+                          <div className="flex gap-2">
+                            <select
+                              name="categoryId"
+                              className="input !py-1"
+                              defaultValue={item.categoryId}
+                            >
+                              {categories.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              name="qtyRequired"
+                              type="number"
+                              min={1}
+                              defaultValue={item.qtyRequired}
+                              className="input !w-20 !py-1"
+                              title="Quantité requise"
+                            />
+                            <SubmitButton className="btn-ghost !py-1 shrink-0" savedLabel="✓ Modifié">Modifier</SubmitButton>
+                          </div>
+                        </form>
+                        <form action={deleteGearItem} className="self-end">
+                          <input type="hidden" name="tripId" value={tripId} />
+                          <input type="hidden" name="itemId" value={item.id} />
+                          <button
+                            className="btn-ghost !py-1"
+                            style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                          >
+                            Supprimer l&apos;item
+                          </button>
+                        </form>
+                      </div>
+                    </details>
+                  )}
                 </div>
               );
             })}

@@ -120,6 +120,34 @@ body {
   font-size: 0.875rem;
 }
 
+/* ---------- Retour visuel des boutons ---------- */
+
+.btn,
+.btn-ghost {
+  cursor: pointer;
+  transition: transform 0.08s ease, background-color 0.2s ease,
+    border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Enfoncement au clic — retour tactile immédiat */
+.btn:active,
+.btn-ghost:active {
+  transform: scale(0.96);
+}
+
+/* Pendant l'enregistrement */
+.submit-btn:disabled {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+/* Confirmation « ✓ Enregistré » — le bouton passe au vert */
+.submit-btn[data-saved] {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
 .input {
   width: 100%;
   background: var(--card);

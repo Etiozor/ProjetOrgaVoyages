@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCars, getParticipants, getTents, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { THEMES } from "@/lib/themes";
+import { SubmitButton } from "@/components/SubmitButton";
 import {
   adminAddCar,
   adminAddTent,
@@ -69,7 +70,7 @@ export default async function AdminPage({
           defaultValue={trip.capacity}
           className="input !w-28"
         />
-        <button className="btn self-end">Enregistrer</button>
+        <SubmitButton className="btn self-end">Enregistrer</SubmitButton>
       </form>
 
       <form action={updateTripToggles} className="card flex flex-col gap-2">
@@ -91,7 +92,7 @@ export default async function AdminPage({
             {t.hint && <span className="muted text-xs">({t.hint})</span>}
           </label>
         ))}
-        <button className="btn self-end">Enregistrer</button>
+        <SubmitButton className="btn self-end">Enregistrer</SubmitButton>
       </form>
 
       <div className="card flex flex-col gap-2">
@@ -144,7 +145,7 @@ export default async function AdminPage({
                   <input name="seats" type="number" min={1} max={9} className="input !w-20" defaultValue={car.seats} title="Places totales" />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button className="btn-ghost !py-1 text-xs">Modifier</button>
+                  <SubmitButton className="btn-ghost !py-1 text-xs" savedLabel="✓ Modifié">Modifier</SubmitButton>
                 </div>
               </form>
               <form action={deleteCar} className="self-end">
@@ -186,7 +187,7 @@ export default async function AdminPage({
                 <input type="hidden" name="tentId" value={tent.id} />
                 <input name="label" className="input" defaultValue={tent.label} placeholder="Nom (ex. Quechua 4p)" required />
                 <input name="capacity" type="number" min={1} max={12} className="input !w-20" defaultValue={tent.capacity} title="Places" />
-                <button className="btn-ghost !py-1 text-xs shrink-0">Modifier</button>
+                <SubmitButton className="btn-ghost !py-1 text-xs shrink-0" savedLabel="✓ Modifié">Modifier</SubmitButton>
               </form>
               <form action={deleteTent} className="self-end">
                 <input type="hidden" name="tripId" value={tripId} />

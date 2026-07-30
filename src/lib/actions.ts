@@ -413,6 +413,37 @@ export async function publishAnnouncement(formData: FormData) {
   refresh();
 }
 
+// Édition/suppression réservée à l'admin (seul l'admin peut publier).
+export async function updateAnnouncement(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const announcementId = Number(formData.get("announcementId"));
+  const content = String(formData.get("content") ?? "").trim();
+  if (!content) return;
+  const announcement = await prisma.announcement.findUnique({
+    where: { id: announcementId },
+  });
+  if (!announcement || announcement.tripId !== tripId) return;
+  await prisma.announcement.update({
+    where: { id: announcementId },
+    data: { content },
+  });
+  refresh();
+}
+
+export async function deleteAnnouncement(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const announcementId = Number(formData.get("announcementId"));
+  const announcement = await prisma.announcement.findUnique({
+    where: { id: announcementId },
+  });
+  if (!announcement || announcement.tripId !== tripId) return;
+  // Les réactions liées sont supprimées en cascade (FK onDelete: Cascade)
+  await prisma.announcement.delete({ where: { id: announcementId } });
+  refresh();
+}
+
 export async function reactToAnnouncement(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   const identity = await tripIdentity(tripId);
@@ -605,6 +636,74 @@ export async function addGearItem(formData: FormData) {
   await prisma.gearItem.create({
     data: { tripId, categoryId, name, qtyRequired, createdById: identity.effective.id },
   });
+  refresh();
+}
+
+// Édition/suppression d'un item : l'admin, ou le participant qui l'a ajouté
+// (même logique de propriété que les voitures/tentes).
+export async function updateGearItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const itemId = Number(formData.get("itemId"));
+  const item = await prisma.gearItem.findUnique({ where: { id: itemId } });
+  if (!item || item.tripId !== tripId) return;
+  if (identity.role !== "admin" && item.createdById !== identity.effective.id) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const qtyRaw = Number(formData.get("qtyRequired"));
+  const qtyRequired = qtyRaw >= 1 ? qtyRaw : 1;
+  if (!name) return;
+  const categoryId = Number(formData.get("categoryId"));
+  const category = (await getGearCategories(tripId)).find((c) => c.id === categoryId);
+  await prisma.gearItem.update({
+    where: { id: itemId },
+    // La catégorie n'est modifiée que si le nouvel id est valide pour ce voyage
+    data: { name, qtyRequired, ...(category ? { categoryId } : {}) },
+  });
+  refresh();
+}
+
+export async function deleteGearItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const itemId = Number(formData.get("itemId"));
+  const item = await prisma.gearItem.findUnique({ where: { id: itemId } });
+  if (!item || item.tripId !== tripId) return;
+  if (identity.role !== "admin" && item.createdById !== identity.effective.id) return;
+  // Les réservations liées partent en cascade (FK onDelete: Cascade)
+  await prisma.gearItem.delete({ where: { id: itemId } });
+  refresh();
+}
+
+// Renommer/supprimer une catégorie : admin uniquement (élément structurant).
+export async function updateGearCategory(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const categoryId = Number(formData.get("categoryId"));
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const category = await prisma.gearCategory.findUnique({ where: { id: categoryId } });
+  if (!category || category.tripId !== tripId) return;
+  const clash = await prisma.gearCategory.findFirst({
+    where: { tripId, name: { equals: name, mode: "insensitive" }, id: { not: categoryId } },
+  });
+  if (clash) return; // pas de doublon de nom
+  await prisma.gearCategory.update({ where: { id: categoryId }, data: { name } });
+  refresh();
+}
+
+export async function deleteGearCategory(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const categoryId = Number(formData.get("categoryId"));
+  const category = await prisma.gearCategory.findUnique({ where: { id: categoryId } });
+  if (!category || category.tripId !== tripId) return;
+  // Sécurité : on ne supprime pas une catégorie qui contient encore des items
+  // (sinon la cascade effacerait silencieusement items + réservations).
+  const itemCount = await prisma.gearItem.count({ where: { categoryId } });
+  if (itemCount > 0) return;
+  await prisma.gearCategory.delete({ where: { id: categoryId } });
   refresh();
 }
 

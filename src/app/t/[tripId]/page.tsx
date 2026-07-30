@@ -1,6 +1,12 @@
 import { getAnnouncements, getParticipants, getReactions } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { publishAnnouncement, reactToAnnouncement } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import {
+  deleteAnnouncement,
+  publishAnnouncement,
+  reactToAnnouncement,
+  updateAnnouncement,
+} from "@/lib/actions";
 
 const EMOJIS = ["👍", "❤️", "🎉", "😂", "😮"];
 
@@ -63,6 +69,37 @@ export default async function AnnouncementsPage({
               </span>
             </div>
             <p className="whitespace-pre-wrap">{a.content}</p>
+
+            {identity.role === "admin" && (
+              <details className="text-xs">
+                <summary className="muted cursor-pointer select-none">
+                  ✏️ Modifier / supprimer
+                </summary>
+                <div className="flex flex-col gap-2 mt-2">
+                  <form action={updateAnnouncement} className="flex flex-col gap-2">
+                    <input type="hidden" name="tripId" value={tripId} />
+                    <input type="hidden" name="announcementId" value={a.id} />
+                    <textarea
+                      name="content"
+                      className="input min-h-16"
+                      defaultValue={a.content}
+                      required
+                    />
+                    <SubmitButton className="btn-ghost !py-1 self-end">Enregistrer</SubmitButton>
+                  </form>
+                  <form action={deleteAnnouncement} className="self-end">
+                    <input type="hidden" name="tripId" value={tripId} />
+                    <input type="hidden" name="announcementId" value={a.id} />
+                    <button
+                      className="btn-ghost !py-1"
+                      style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                    >
+                      Supprimer l&apos;annonce
+                    </button>
+                  </form>
+                </div>
+              </details>
+            )}
 
             <div className="flex gap-1.5 flex-wrap">
               {EMOJIS.map((e) => (

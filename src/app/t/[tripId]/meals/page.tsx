@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCars, getParticipants, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { saveMeal } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function MealsPage({
   params,
@@ -73,7 +74,7 @@ export default async function MealsPage({
                   defaultValue={car.shopping}
                   placeholder={"- haricots rouges\n- tortillas\n- chamallows"}
                 />
-                <button className="btn self-end">Enregistrer</button>
+                <SubmitButton className="btn self-end">Enregistrer</SubmitButton>
               </form>
             ) : (
               <>
