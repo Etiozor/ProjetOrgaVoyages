@@ -8,7 +8,8 @@ import {
   getTripById,
 } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { SubmitButton } from "@/components/SubmitButton";
+import { AnnouncementComposer } from "@/components/AnnouncementComposer";
+import { RichText } from "@/components/RichText";
 import {
   deleteAnnouncement,
   publishAnnouncement,
@@ -166,25 +167,15 @@ export default async function AnnouncementsPage({
       </div>
 
       {identity.role === "admin" && (
-        <form action={publishAnnouncement} className="card flex flex-col gap-2.5">
-          <input type="hidden" name="tripId" value={tripId} />
-          <label className="eyebrow">
-            Nouvelle annonce{" "}
-            {identity.isImpersonating && `· publiée pour ${identity.effective.name}`}
-          </label>
-          <textarea
-            name="content"
-            className="input serif min-h-24 !py-2.5 resize-none"
-            placeholder="Écris ton annonce…"
-            required
-          />
-          <div className="flex items-center justify-between gap-3">
-            <span className="muted text-[0.65rem] leading-snug">
-              Un courriel part aux participants ayant fourni leur adresse.
-            </span>
-            <button className="btn shrink-0">Publier</button>
-          </div>
-        </form>
+        <AnnouncementComposer
+          tripId={tripId}
+          action={publishAnnouncement}
+          eyebrow={
+            identity.isImpersonating
+              ? `Nouvelle annonce · publiée pour ${identity.effective.name}`
+              : "Nouvelle annonce"
+          }
+        />
       )}
 
       <div id="annonces" className="flex items-center justify-between scroll-mt-24">
@@ -232,7 +223,7 @@ export default async function AnnouncementsPage({
                 })}
               </span>
             </div>
-            <p className="serif whitespace-pre-wrap">{a.content}</p>
+            <RichText content={a.content} font={a.font} />
 
             {identity.role === "admin" && (
               <details className="text-xs">
@@ -240,17 +231,15 @@ export default async function AnnouncementsPage({
                   Modifier / supprimer
                 </summary>
                 <div className="flex flex-col gap-2 mt-2">
-                  <form action={updateAnnouncement} className="flex flex-col gap-2">
-                    <input type="hidden" name="tripId" value={tripId} />
-                    <input type="hidden" name="announcementId" value={a.id} />
-                    <textarea
-                      name="content"
-                      className="input min-h-16"
-                      defaultValue={a.content}
-                      required
-                    />
-                    <SubmitButton className="btn-ghost self-end">Enregistrer</SubmitButton>
-                  </form>
+                  <AnnouncementComposer
+                    tripId={tripId}
+                    action={updateAnnouncement}
+                    announcementId={a.id}
+                    defaultContent={a.content}
+                    defaultFont={a.font}
+                    submitLabel="Enregistrer"
+                    note="Sélectionne du texte puis Gras / Italique, puis Enregistrer."
+                  />
                   <form action={deleteAnnouncement} className="self-end">
                     <input type="hidden" name="tripId" value={tripId} />
                     <input type="hidden" name="announcementId" value={a.id} />

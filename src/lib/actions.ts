@@ -20,6 +20,7 @@ import {
   normalizePhone,
 } from "./db";
 import { isThemeId } from "./themes";
+import { isAnnounceFont } from "./announceFonts";
 import { clearSession, requireUser, tripIdentity, writeSession } from "./session";
 
 function refresh() {
@@ -392,11 +393,13 @@ export async function publishAnnouncement(formData: FormData) {
   if (!identity) return;
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return;
+  const fontRaw = String(formData.get("font") ?? "barlow");
+  const font = isAnnounceFont(fontRaw) ? fontRaw : "barlow";
   const authorLabel = identity.isImpersonating
     ? `${identity.user.firstName} (pour ${identity.effective.name})`
     : `${identity.user.firstName} (admin)`;
   await prisma.announcement.create({
-    data: { tripId, content, authorLabel, createdAt: new Date().toISOString() },
+    data: { tripId, content, font, authorLabel, createdAt: new Date().toISOString() },
   });
   // ANN-05 — destinataires : le courriel du compte lié, sinon celui saisi par l'admin.
   // L'envoi réel (fournisseur SMTP) reste à brancher ; en attendant il est journalisé.
@@ -420,13 +423,15 @@ export async function updateAnnouncement(formData: FormData) {
   const announcementId = Number(formData.get("announcementId"));
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return;
+  const fontRaw = String(formData.get("font") ?? "barlow");
+  const font = isAnnounceFont(fontRaw) ? fontRaw : "barlow";
   const announcement = await prisma.announcement.findUnique({
     where: { id: announcementId },
   });
   if (!announcement || announcement.tripId !== tripId) return;
   await prisma.announcement.update({
     where: { id: announcementId },
-    data: { content },
+    data: { content, font },
   });
   refresh();
 }

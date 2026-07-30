@@ -89,6 +89,9 @@ model Announcement {
   id          Int    @id @default(autoincrement())
   tripId      Int
   content     String
+  /// Police d'affichage : "barlow" (défaut, non italique), "serif" ou "oswald".
+  /// Le corps peut contenir un balisage léger : **gras** et _italique_.
+  font        String @default("barlow")
   authorLabel String
   createdAt   String
 
