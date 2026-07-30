@@ -25,29 +25,36 @@ export default async function TripsPage({
   const theme = store.get("theme")?.value === "dark" ? "dark" : "light";
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
+    <div className="mx-auto max-w-xl px-5 py-6 flex flex-col gap-5">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">🏕️ Mes voyages</h1>
-          <p className="muted text-sm">Salut {user.firstName} !</p>
+          <h1 className="text-[1.9rem]">Mes voyages</h1>
+          <p className="muted text-sm mt-1.5 tracking-[0.04em]">Salut {user.firstName}</p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <form action={toggleTheme}>
-            <button className="btn-ghost !px-2" title="Changer de thème">
-              {theme === "dark" ? "☀️" : "🌙"}
+            <button className="btn-ghost !min-h-0 !px-2 !py-1.5" title="Changer de thème">
+              {theme === "dark" ? "☀" : "☾"}
             </button>
           </form>
           <form action={logout}>
-            <button className="btn-ghost !px-2" title="Se déconnecter">⎋</button>
+            <button
+              className="btn-ghost !min-h-0 !px-3 !py-1.5 uppercase !text-[0.65rem] tracking-[0.1em]"
+              style={{ color: "var(--muted)", borderColor: "var(--border)" }}
+              title="Se déconnecter"
+            >
+              Quitter
+            </button>
           </form>
         </div>
       </div>
 
       {trips.length === 0 && (
-        <div className="card text-center py-8">
-          <p className="text-3xl mb-2">⛺</p>
-          <p className="font-semibold">Aucun voyage pour l&apos;instant</p>
-          <p className="muted text-sm mt-1">
+        <div className="card text-center py-8 flex flex-col gap-1.5">
+          <p className="font-[family-name:var(--font-oswald)] text-lg uppercase">
+            Aucun voyage pour l&apos;instant
+          </p>
+          <p className="muted text-sm">
             Rejoins un voyage avec son code, ou crées-en un nouveau.
           </p>
         </div>
@@ -56,42 +63,66 @@ export default async function TripsPage({
       {trips.map((trip) => {
         const count = trip.participantCount;
         const dates = formatDates(trip.startDate, trip.endDate);
+        const fill = Math.min(100, Math.round((count / Math.max(1, trip.capacity)) * 100));
         return (
-          <Link key={trip.id} href={`/t/${trip.id}`} className="card flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-bold truncate">🏕️ {trip.name}</span>
-              {trip.role === "admin" && <span className="tag shrink-0">👑 Admin</span>}
+          <Link
+            key={trip.id}
+            href={`/t/${trip.id}`}
+            className="card !p-0 overflow-hidden block"
+          >
+            <div className="p-4 flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between gap-2.5">
+                <span className="font-[family-name:var(--font-oswald)] text-[1.2rem] font-semibold uppercase tracking-[0.03em] leading-tight">
+                  {trip.name}
+                </span>
+                <span
+                  className="tag shrink-0"
+                  style={
+                    trip.role === "admin"
+                      ? undefined
+                      : { background: "rgba(0,0,0,.06)", color: "var(--muted)" }
+                  }
+                >
+                  {trip.role === "admin" ? "Admin" : "Participant"}
+                </span>
+              </div>
+              {(trip.location || dates) && (
+                <p className="serif !text-base truncate">
+                  {[trip.location, dates].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              <p className="muted text-[0.7rem] tracking-[0.05em] mt-1.5">
+                {count} participant{count > 1 ? "s" : ""} · {trip.capacity} attendus
+              </p>
             </div>
-            <p className="muted text-sm truncate">
-              {[trip.location, dates].filter(Boolean).join(" · ") || "—"}
-            </p>
-            <p className="muted text-xs">
-              {count} participant{count > 1 ? "s" : ""} · {trip.capacity} attendus
-            </p>
+            <div style={{ height: 4, background: "rgba(0,0,0,.06)" }}>
+              <div style={{ height: 4, width: `${fill}%`, background: "var(--accent)" }} />
+            </div>
           </Link>
         );
       })}
 
-      <form action={submitTripCode} className="card flex flex-col gap-2">
-        <p className="font-semibold text-sm">➕ Ajouter un voyage</p>
+      <form action={submitTripCode} className="card-dashed flex flex-col gap-2.5">
+        <p className="eyebrow">Ajouter un voyage</p>
         <div className="flex gap-2">
           <input
             name="code"
-            className="input uppercase"
-            placeholder="Code du voyage"
+            className="input uppercase tracking-[0.14em]"
+            placeholder="CODE DU VOYAGE"
             required
           />
           <button className="btn shrink-0">Rejoindre</button>
         </div>
         {params.error === "code" && (
-          <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
+          <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
             Aucun voyage avec ce code, vérifie auprès de l&apos;admin.
           </p>
         )}
+        <p className="muted text-xs">Essaie CAMP2026</p>
       </form>
 
       <Link href="/new" className="btn-ghost justify-center">
-        ✨ Créer un nouveau voyage
+        Créer un nouveau voyage
       </Link>
     </div>
   );

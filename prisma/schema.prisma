@@ -63,6 +63,8 @@ model Participant {
   phone       String?
   email       String?
   dietary     String  @default("")
+  /// Photo de profil (data URL image, redimensionnée côté client). Vide = initiales.
+  photo       String  @default("")
   isConfirmed Boolean @default(false)
   confirmedBy String?
   isActive    Boolean @default(true)

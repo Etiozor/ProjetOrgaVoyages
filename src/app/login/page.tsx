@@ -16,88 +16,110 @@ export default async function LoginPage({
   const phone = params.phone ?? "";
 
   return (
-    <div className="mx-auto max-w-sm px-4 pt-14">
-      <div className="text-center mb-6">
-        <div className="text-5xl mb-2">🏕️</div>
-        <h1 className="text-2xl font-bold">TRIP&apos;IN</h1>
-        <p className="muted text-sm mt-1">
-          Tes voyages te suivent — il te faut juste ton numéro.
-        </p>
+    <div className="mx-auto max-w-sm px-6 pt-10 pb-16 flex flex-col gap-6">
+      <div className="flex items-baseline gap-3">
+        <span
+          className="font-[family-name:var(--font-oswald)] text-[0.95rem] font-bold uppercase"
+          style={{ letterSpacing: "0.05em" }}
+        >
+          TRIP&apos;IN
+        </span>
+        <span className="eyebrow">
+          {step === "name" ? "Inscription" : "Connexion"}
+        </span>
       </div>
 
       {step === "phone" && (
-        <form action={loginWithPhone} className="card flex flex-col gap-3">
-          <label className="font-semibold text-sm">Ton numéro de cellulaire</label>
-          <input
-            name="phone"
-            className="input"
-            type="tel"
-            placeholder="ex. 514 555 0199"
-            autoFocus
-            required
-          />
-          {error === "phone" && (
-            <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
-              Ce numéro ne semble pas valide, réessaie.
+        <>
+          <div>
+            <div className="eyebrow">Organisation de voyages entre amis</div>
+            <hr className="rule" />
+            <p className="serif">
+              Tes voyages te suivent — il te faut juste ton numéro.
             </p>
-          )}
-          <button className="btn">Continuer</button>
-          <p className="muted text-xs">
-            Pas de mot de passe : ton numéro retrouve tous tes voyages. Tu rejoins un
-            voyage avec le code partagé par son admin.
-          </p>
-        </form>
+          </div>
+
+          <form action={loginWithPhone} className="card flex flex-col gap-3">
+            <label className="eyebrow">Ton numéro de cellulaire</label>
+            <input
+              name="phone"
+              className="input"
+              type="tel"
+              placeholder="514 555 0199"
+              autoFocus
+              required
+            />
+            {error === "phone" && (
+              <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+                Ce numéro ne semble pas valide, réessaie.
+              </p>
+            )}
+            <button className="btn w-full">Continuer</button>
+            <p className="muted text-xs leading-relaxed">
+              Pas de mot de passe. Ton numéro retrouve tous tes voyages ; tu rejoins un
+              voyage avec le code partagé par son admin.
+            </p>
+          </form>
+        </>
       )}
 
       {step === "name" && (
-        <form action={registerUser} className="card flex flex-col gap-3">
+        <form action={registerUser} className="flex flex-col gap-5">
           <input type="hidden" name="phone" value={phone} />
-          <p className="font-semibold">Bienvenue ! 👋</p>
-          <p className="muted text-sm">
+          <h1 className="text-2xl">Se présenter</h1>
+          <p className="serif">
             Première connexion avec le {phone || "numéro fourni"} — fais-toi connaître
             du groupe.
           </p>
-          <label className="font-semibold text-sm">Prénom</label>
-          <input
-            name="firstName"
-            className="input"
-            placeholder="Ton prénom"
-            defaultValue={params.firstName ?? ""}
-            autoFocus
-            required
-          />
-          <label className="font-semibold text-sm">Nom</label>
-          <input
-            name="lastName"
-            className="input"
-            placeholder="Ton nom de famille"
-            defaultValue={params.lastName ?? ""}
-            required
-          />
-          {error === "name" && (
-            <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
-              Il nous faut ton prénom et ton nom.
+          <div className="card flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="eyebrow">Prénom</label>
+              <input
+                name="firstName"
+                className="input"
+                placeholder="Ton prénom"
+                defaultValue={params.firstName ?? ""}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="eyebrow">Nom</label>
+              <input
+                name="lastName"
+                className="input"
+                placeholder="Ton nom de famille"
+                defaultValue={params.lastName ?? ""}
+                required
+              />
+            </div>
+            {error === "name" && (
+              <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+                Il nous faut ton prénom et ton nom.
+              </p>
+            )}
+            <div className="flex flex-col gap-2">
+              <label className="eyebrow">Courriel</label>
+              <input
+                name="email"
+                className="input"
+                type="email"
+                placeholder="ex. toi@exemple.com"
+                defaultValue={params.email ?? ""}
+                required
+              />
+            </div>
+            {error === "email" && (
+              <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+                Ce courriel ne semble pas valide, réessaie.
+              </p>
+            )}
+            <p className="muted text-xs leading-relaxed">
+              Ton courriel sert uniquement à te prévenir des nouvelles annonces de tes
+              voyages.
             </p>
-          )}
-          <label className="font-semibold text-sm">Courriel</label>
-          <input
-            name="email"
-            className="input"
-            type="email"
-            placeholder="ex. toi@exemple.com"
-            defaultValue={params.email ?? ""}
-            required
-          />
-          {error === "email" && (
-            <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
-              Ce courriel ne semble pas valide, réessaie.
-            </p>
-          )}
-          <p className="muted text-xs">
-            📧 Ton courriel sert uniquement à te prévenir des nouvelles annonces de tes
-            voyages.
-          </p>
-          <button className="btn">C&apos;est parti</button>
+            <button className="btn w-full">C&apos;est parti</button>
+          </div>
         </form>
       )}
     </div>

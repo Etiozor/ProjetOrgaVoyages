@@ -96,10 +96,23 @@ export async function generateTripCode(): Promise<string> {
 
 // ---------- Participants ----------
 
-export function getParticipants(tripId: number): Promise<Participant[]> {
+// La photo (data URL) peut peser des dizaines de Ko ; on l'exclut des listes
+// (chargées sur presque chaque page) et on la récupère à part via getParticipantPhotos.
+export function getParticipants(tripId: number): Promise<Omit<Participant, "photo">[]> {
   return prisma.participant.findMany({
     where: { tripId, isActive: true },
     orderBy: { name: "asc" },
+    omit: { photo: true },
+  });
+}
+
+// { id → photo } pour les participants d'un voyage qui ont une photo de profil.
+export function getParticipantPhotos(
+  tripId: number
+): Promise<{ id: number; photo: string }[]> {
+  return prisma.participant.findMany({
+    where: { tripId, isActive: true, NOT: { photo: "" } },
+    select: { id: true, photo: true },
   });
 }
 

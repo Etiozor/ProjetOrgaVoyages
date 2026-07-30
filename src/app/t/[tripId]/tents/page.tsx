@@ -21,15 +21,17 @@ export default async function TentsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">⛺ Tentes</h1>
-      <p className="muted text-sm">
-        Qui dort où — chacun déclare sa tente ou rejoint celle d&apos;un ami.
-      </p>
+      <div>
+        <h1 className="text-2xl">Tentes</h1>
+        <p className="serif !text-base mt-1.5">
+          Qui dort où — chacun déclare sa tente ou rejoint celle d&apos;un ami.
+        </p>
+      </div>
 
       {canDeclare && (
-        <form action={declareTent} className="card flex flex-col gap-2">
+        <form action={declareTent} className="card-dashed flex flex-col gap-2.5">
           <input type="hidden" name="tripId" value={tripId} />
-          <p className="font-semibold text-sm">Je ramène ma tente</p>
+          <p className="eyebrow">Je ramène ma tente</p>
           <div className="flex gap-2">
             <input name="label" className="input" placeholder="Nom / modèle (ex. Quechua 4p)" />
             <input
@@ -48,8 +50,8 @@ export default async function TentsPage({
       )}
 
       {!trip.allowMemberTents && identity.role !== "admin" && (
-        <p className="muted text-xs">
-          ℹ️ L&apos;admin a désactivé l&apos;ajout de tentes par les participants.
+        <p className="muted text-xs leading-relaxed">
+          L&apos;admin a désactivé l&apos;ajout de tentes par les participants.
         </p>
       )}
 
@@ -62,15 +64,17 @@ export default async function TentsPage({
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = tent.ownerId === me.id;
         return (
-          <div key={tent.id} className="card flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold">⛺ {tent.label}</span>
-              <span className="tag" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
-                {free > 0 ? `${free} place${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}` : "Complète"}
+          <div key={tent.id} className="card flex flex-col gap-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+                {tent.label}
+              </span>
+              <span className="tag shrink-0" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
+                {free > 0 ? `${free} libre${free > 1 ? "s" : ""}` : "Complète"}
               </span>
             </div>
-            <p className="text-sm muted">
-              Dedans : {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/{tent.capacity})
+            <p className="text-[0.8rem] muted">
+              Dedans · {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/{tent.capacity})
               {!owner && " · ajoutée par l'admin"}
             </p>
             {!iAmIn && free > 0 && !myTentId && (

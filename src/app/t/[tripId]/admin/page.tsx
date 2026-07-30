@@ -16,15 +16,15 @@ import {
 } from "@/lib/actions";
 
 const TOGGLES: { name: string; label: string; hint?: string }[] = [
-  { name: "pageCarpool", label: "🚗 Page Voitures" },
-  { name: "pageMeals", label: "🍲 Page Repas", hint: "les équipes viennent des voitures" },
-  { name: "pageTents", label: "⛺ Page Tentes" },
-  { name: "pageGear", label: "🎒 Page Matos" },
+  { name: "pageCarpool", label: "Page Voitures" },
+  { name: "pageMeals", label: "Page Repas", hint: "les équipes viennent des voitures" },
+  { name: "pageTents", label: "Page Tentes" },
+  { name: "pageGear", label: "Page Matos" },
   { name: "allowMemberCars", label: "Les participants peuvent déclarer des voitures" },
   { name: "allowMemberTents", label: "Les participants peuvent déclarer des tentes" },
   {
     name: "requireReaction",
-    label: "📣 Réaction obligatoire aux annonces",
+    label: "Réaction obligatoire aux annonces",
     hint: "sinon le bandeau de rappel n'apparaît pas",
   },
 ];
@@ -45,11 +45,14 @@ export default async function AdminPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">⚙️ Administration</h1>
+      <h1 className="text-2xl">Administration</h1>
 
       <div className="card flex flex-col gap-1.5 text-center">
-        <p className="font-semibold text-sm">Code d&apos;invitation</p>
-        <p className="text-3xl font-bold tracking-widest" style={{ color: "var(--accent)" }}>
+        <p className="eyebrow">Code d&apos;invitation</p>
+        <p
+          className="font-[family-name:var(--font-oswald)] text-4xl font-bold"
+          style={{ color: "var(--accent)", letterSpacing: "0.14em" }}
+        >
           {trip.accessCode}
         </p>
         <p className="muted text-xs">
@@ -59,10 +62,10 @@ export default async function AdminPage({
 
       <form action={updateTripSettings} className="card flex flex-col gap-2">
         <input type="hidden" name="tripId" value={tripId} />
-        <p className="font-semibold text-sm">Réglages du voyage</p>
-        <label className="text-sm muted">Nom</label>
+        <p className="eyebrow">Réglages du voyage</p>
+        <label className="eyebrow">Nom</label>
         <input name="name" className="input" defaultValue={trip.name} required />
-        <label className="text-sm muted">Participants attendus</label>
+        <label className="eyebrow">Participants attendus</label>
         <input
           name="capacity"
           type="number"
@@ -75,7 +78,7 @@ export default async function AdminPage({
 
       <form action={updateTripToggles} className="card flex flex-col gap-2">
         <input type="hidden" name="tripId" value={tripId} />
-        <p className="font-semibold text-sm">🎛️ Pages & permissions</p>
+        <p className="eyebrow">Pages &amp; permissions</p>
         <p className="muted text-xs">
           Désactive les pages inutiles pour ce voyage, et choisis si les participants
           peuvent déclarer eux-mêmes voitures et tentes.
@@ -96,35 +99,41 @@ export default async function AdminPage({
       </form>
 
       <div className="card flex flex-col gap-2">
-        <p className="font-semibold text-sm">🎨 Thème du voyage</p>
+        <p className="eyebrow">Thème du voyage</p>
         <p className="muted text-xs">Appliqué à toutes les pages, pour tout le groupe.</p>
         <div className="grid grid-cols-2 gap-2">
-          {THEMES.map((t) => (
-            <form key={t.id} action={setTripTheme}>
-              <input type="hidden" name="tripId" value={tripId} />
-              <input type="hidden" name="theme" value={t.id} />
-              <button
-                className="w-full rounded-lg border px-3 py-2.5 text-sm font-semibold flex items-center gap-2"
-                style={{
-                  borderColor: trip.theme === t.id ? t.accent : "var(--border)",
-                  borderWidth: trip.theme === t.id ? 2 : 1,
-                  background: "var(--card)",
-                }}
-              >
-                <span
-                  className="inline-block h-4 w-4 rounded-full shrink-0"
-                  style={{ background: t.accent }}
-                />
-                {t.emoji} {t.label}
-                {trip.theme === t.id && " ✓"}
-              </button>
-            </form>
-          ))}
+          {THEMES.map((t) => {
+            const active = trip.theme === t.id;
+            return (
+              <form key={t.id} action={setTripTheme}>
+                <input type="hidden" name="tripId" value={tripId} />
+                <input type="hidden" name="theme" value={t.id} />
+                <button
+                  className="w-full px-3 text-sm font-semibold flex items-center justify-between gap-2"
+                  style={{
+                    minHeight: 48,
+                    borderRadius: 3,
+                    border: `1px solid ${active ? t.accent : "rgba(0,0,0,.12)"}`,
+                    background: "var(--card-raised)",
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block shrink-0"
+                      style={{ height: 16, width: 16, borderRadius: 3, background: t.accent }}
+                    />
+                    {t.label}
+                  </span>
+                  {active && <span style={{ color: t.accent }}>✓</span>}
+                </button>
+              </form>
+            );
+          })}
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="font-bold">🚗 Voitures</p>
+        <h2 className="text-lg">Voitures</h2>
         <p className="muted text-xs">
           Les participants déclarent normalement leurs voitures eux-mêmes (page Voitures).
           Ici tu peux tout modifier/supprimer, ou en ajouter pour quelqu&apos;un qui
@@ -145,13 +154,13 @@ export default async function AdminPage({
                   <input name="seats" type="number" min={1} max={9} className="input !w-20" defaultValue={car.seats} title="Places totales" />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <SubmitButton className="btn-ghost !py-1 text-xs" savedLabel="✓ Modifié">Modifier</SubmitButton>
+                  <SubmitButton className="btn-ghost !min-h-0 !py-1 text-xs" savedLabel="✓ Modifié">Modifier</SubmitButton>
                 </div>
               </form>
               <form action={deleteCar} className="self-end">
                 <input type="hidden" name="tripId" value={tripId} />
                 <input type="hidden" name="carId" value={car.id} />
-                <button className="btn-ghost !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
+                <button className="btn-ghost !min-h-0 !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
                   Supprimer
                 </button>
               </form>
@@ -160,7 +169,7 @@ export default async function AdminPage({
         })}
         <form action={adminAddCar} className="card flex flex-col gap-2">
           <input type="hidden" name="tripId" value={tripId} />
-          <p className="font-semibold text-sm">Ajouter une voiture</p>
+          <p className="eyebrow">Ajouter une voiture</p>
           <input name="label" className="input" placeholder="Nom (ex. Voiture de Max)" required />
           <div className="flex gap-2">
             <input name="departPlace" className="input" placeholder="Lieu de départ" />
@@ -172,7 +181,7 @@ export default async function AdminPage({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="font-bold">⛺ Tentes</p>
+        <h2 className="text-lg">Tentes</h2>
         <p className="muted text-xs">
           Même principe : les participants déclarent leurs tentes (page Tentes), tu peux
           tout gérer ici.
@@ -187,12 +196,12 @@ export default async function AdminPage({
                 <input type="hidden" name="tentId" value={tent.id} />
                 <input name="label" className="input" defaultValue={tent.label} placeholder="Nom (ex. Quechua 4p)" required />
                 <input name="capacity" type="number" min={1} max={12} className="input !w-20" defaultValue={tent.capacity} title="Places" />
-                <SubmitButton className="btn-ghost !py-1 text-xs shrink-0" savedLabel="✓ Modifié">Modifier</SubmitButton>
+                <SubmitButton className="btn-ghost !min-h-0 !py-1 text-xs shrink-0" savedLabel="✓ Modifié">Modifier</SubmitButton>
               </form>
               <form action={deleteTent} className="self-end">
                 <input type="hidden" name="tripId" value={tripId} />
                 <input type="hidden" name="tentId" value={tent.id} />
-                <button className="btn-ghost !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
+                <button className="btn-ghost !min-h-0 !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
                   Supprimer
                 </button>
               </form>
@@ -201,7 +210,7 @@ export default async function AdminPage({
         })}
         <form action={adminAddTent} className="card flex flex-col gap-2">
           <input type="hidden" name="tripId" value={tripId} />
-          <p className="font-semibold text-sm">Ajouter une tente</p>
+          <p className="eyebrow">Ajouter une tente</p>
           <div className="flex gap-2">
             <input name="label" className="input" placeholder="Nom (ex. Quechua 4p)" required />
             <input name="capacity" type="number" min={1} max={12} defaultValue={4} className="input !w-20" title="Places" />

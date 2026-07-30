@@ -497,6 +497,32 @@ export async function updateDietary(formData: FormData) {
   refresh();
 }
 
+// Photo de profil : data URL image redimensionnée côté client. On borne la taille
+// pour éviter qu'une image trop lourde n'entre en base (~500 Ko d'image ≈ 700 Ko b64).
+export async function setPhoto(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const photo = String(formData.get("photo") ?? "");
+  if (!photo.startsWith("data:image/") || photo.length > 700_000) return;
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { photo },
+  });
+  refresh();
+}
+
+export async function removePhoto(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  await prisma.participant.update({
+    where: { id: identity.effective.id },
+    data: { photo: "" },
+  });
+  refresh();
+}
+
 export async function addParticipant(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   if (!(await requireAdmin(tripId))) return;

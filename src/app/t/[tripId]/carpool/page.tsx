@@ -21,15 +21,17 @@ export default async function CarpoolPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">🚗 Covoiturage</h1>
-      <p className="muted text-sm">
-        Les occupants d&apos;une même voiture forment automatiquement une équipe repas. 🍲
-      </p>
+      <div>
+        <h1 className="text-2xl">Covoiturage</h1>
+        <p className="serif !text-base mt-1.5">
+          Les occupants d&apos;une même voiture forment automatiquement une équipe repas.
+        </p>
+      </div>
 
       {canDeclare && (
-        <form action={declareCar} className="card flex flex-col gap-2">
+        <form action={declareCar} className="card-dashed flex flex-col gap-2.5">
           <input type="hidden" name="tripId" value={tripId} />
-          <p className="font-semibold text-sm">Je prends ma voiture 🔑</p>
+          <p className="eyebrow">Je prends ma voiture</p>
           <input name="departPlace" className="input" placeholder="Lieu de départ (ex. Montréal, métro Longueuil)" />
           <div className="flex gap-2">
             <input name="departTime" className="input" placeholder="Heure de départ (ex. sam. 8h00)" />
@@ -50,8 +52,8 @@ export default async function CarpoolPage({
       )}
 
       {!trip.allowMemberCars && identity.role !== "admin" && (
-        <p className="muted text-xs">
-          ℹ️ L&apos;admin a désactivé l&apos;ajout de voitures par les participants.
+        <p className="muted text-xs leading-relaxed">
+          L&apos;admin a désactivé l&apos;ajout de voitures par les participants.
         </p>
       )}
 
@@ -64,22 +66,22 @@ export default async function CarpoolPage({
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = car.ownerId === me.id;
         return (
-          <div key={car.id} className="card flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold">🚗 {car.label}</span>
-              <span className="tag" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
-                {free > 0 ? `${free} place${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}` : "Complet"}
+          <div key={car.id} className="card flex flex-col gap-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+                {car.label}
+              </span>
+              <span className="tag shrink-0" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
+                {free > 0 ? `${free} libre${free > 1 ? "s" : ""}` : "Complet"}
               </span>
             </div>
             {(car.departPlace || car.departTime) && (
-              <p className="text-sm">
-                {car.departPlace && <>📍 {car.departPlace}</>}
-                {car.departPlace && car.departTime && " · "}
-                {car.departTime && <>🕐 {car.departTime}</>}
+              <p className="text-[0.8rem] muted tracking-[0.03em]">
+                {[car.departPlace, car.departTime].filter(Boolean).join(" · ")}
               </p>
             )}
-            <p className="text-sm muted">
-              À bord : {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/{car.seats})
+            <p className="text-[0.8rem] muted">
+              À bord · {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/{car.seats})
               {!owner && " · ajoutée par l'admin"}
             </p>
             {!iAmIn && free > 0 && !myCarId && (
