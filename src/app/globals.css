@@ -261,6 +261,44 @@ html[data-theme="dark"] .input {
   color: var(--muted);
 }
 
+/* ---------- Repas : défilement fluide vers un créneau ciblé ---------- */
+
+/* Cliquer une case du planning pointe vers #slot-N : on y glisse en douceur… */
+html {
+  scroll-behavior: smooth;
+}
+
+/* …et le créneau visé se met brièvement en valeur (halo sarcelle + pulsation). */
+.meal-slot {
+  transition: box-shadow 0.25s ease;
+}
+
+.meal-slot:target {
+  animation: slot-flash 1.3s ease-out;
+}
+
+@keyframes slot-flash {
+  0% {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-soft);
+  }
+  70% {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .meal-slot:target {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}
+
 /* ---------- Menu du voyage (feuille du bas « … ») ---------- */
 
 /* Glissé-fondu à l'ouverture, repris de la maquette (@keyframes pofin). */

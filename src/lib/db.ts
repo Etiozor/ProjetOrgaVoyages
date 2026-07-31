@@ -5,6 +5,8 @@ import type {
   GearCategory,
   GearClaim,
   GearItem,
+  MealShopItem,
+  MealSlot,
   Participant,
   Reaction,
   Tent,
@@ -18,12 +20,16 @@ export type {
   GearCategory,
   GearClaim,
   GearItem,
+  MealShopItem,
+  MealSlot,
   Participant,
   Reaction,
   Tent,
   Trip,
   User,
 };
+
+export type MealSlotWithShop = MealSlot & { shop: MealShopItem[] };
 
 export { DEFAULT_GEAR_CATEGORIES } from "./gear";
 
@@ -183,4 +189,14 @@ export function getGearItems(tripId: number): Promise<GearItem[]> {
 
 export function getGearClaims(tripId: number): Promise<GearClaim[]> {
   return prisma.gearClaim.findMany({ where: { item: { tripId } } });
+}
+
+// ---------- Repas ----------
+
+export function getMealSlots(tripId: number): Promise<MealSlotWithShop[]> {
+  return prisma.mealSlot.findMany({
+    where: { tripId },
+    include: { shop: { orderBy: { id: "asc" } } },
+    orderBy: [{ day: "asc" }, { meal: "asc" }],
+  });
 }

@@ -57,14 +57,51 @@ export default async function GearPage({
         </p>
       </div>
 
+      {/* Ajout de matos : ouvert à tous les participants (le renommage/suppression
+          de catégorie reste réservé à l'admin) */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <h2 className="eyebrow whitespace-nowrap">Ajouter du matos</h2>
+          <span className="flex-1 h-px" style={{ background: "var(--hair)" }} />
+        </div>
+
+        <form action={addGearItem} className="card-dashed flex flex-col gap-2.5">
+          <input type="hidden" name="tripId" value={tripId} />
+          <p className="eyebrow">Ajouter un item</p>
+          <input name="name" className="input" placeholder="ex. Lampe frontale, réchaud…" required />
+          <div className="flex gap-2">
+            <select name="categoryId" className="input">
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              name="qtyRequired"
+              type="number"
+              min={1}
+              defaultValue={1}
+              className="input !w-24"
+              title="Quantité requise"
+            />
+            <button className="btn shrink-0">Ajouter</button>
+          </div>
+        </form>
+
+        <form action={addGearCategory} className="flex gap-2">
+          <input type="hidden" name="tripId" value={tripId} />
+          <input name="name" className="input" placeholder="Nouvelle catégorie (ex. Pêche)" required />
+          <button className="btn-ghost shrink-0">+ Catégorie</button>
+        </form>
+      </div>
+
       {items.length === 0 && (
         <p className="muted">La liste est vide — ajoutez ce qu&apos;il faut apporter !</p>
       )}
 
       {categories.map((cat) => {
         const catItems = items.filter((i) => i.categoryId === cat.id);
-        // Catégories vides : masquées aux participants, visibles à l'admin pour gestion
-        if (catItems.length === 0 && !isAdmin) return null;
         const catOk = catItems.filter(isDone).length;
         return (
           <div key={cat.id} className="flex flex-col gap-2">
@@ -283,46 +320,6 @@ export default async function GearPage({
           </div>
         );
       })}
-
-      {/* Gestion de la liste — admin uniquement (les participants ajustent leurs quantités) */}
-      {isAdmin && (
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <h2 className="eyebrow whitespace-nowrap">Gestion · admin</h2>
-            <span className="flex-1 h-px" style={{ background: "var(--hair)" }} />
-          </div>
-
-          <form action={addGearItem} className="card-dashed flex flex-col gap-2.5">
-            <input type="hidden" name="tripId" value={tripId} />
-            <p className="eyebrow">Ajouter un item</p>
-            <input name="name" className="input" placeholder="ex. Lampe frontale, réchaud…" required />
-            <div className="flex gap-2">
-              <select name="categoryId" className="input">
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="qtyRequired"
-                type="number"
-                min={1}
-                defaultValue={1}
-                className="input !w-24"
-                title="Quantité requise"
-              />
-              <button className="btn shrink-0">Ajouter</button>
-            </div>
-          </form>
-
-          <form action={addGearCategory} className="flex gap-2">
-            <input type="hidden" name="tripId" value={tripId} />
-            <input name="name" className="input" placeholder="Nouvelle catégorie (ex. Pêche)" required />
-            <button className="btn-ghost shrink-0">+ Catégorie</button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

@@ -21,7 +21,14 @@ import {
 } from "./db";
 import { isThemeId } from "./themes";
 import { isAnnounceFont } from "./announceFonts";
-import { clearSession, requireUser, tripIdentity, writeSession } from "./session";
+import {
+  clearSession,
+  readSession,
+  requireUser,
+  tripIdentity,
+  writeSession,
+  type TripIdentity,
+} from "./session";
 
 function refresh() {
   revalidatePath("/", "layout");
@@ -586,19 +593,110 @@ export async function leaveCar(formData: FormData) {
   refresh();
 }
 
-// ---------- Repas ----------
+// ---------- Repas : équipes par créneau (jour × service) ----------
 
-export async function saveMeal(formData: FormData) {
+// Un créneau est modifiable (menu, courses) par un membre de l'équipe inscrite,
+// ou par l'admin hors « vue participant ». Reflète le canEdit de la maquette.
+function canEditMealSlot(
+  identity: TripIdentity,
+  slot: { carId: number | null }
+): boolean {
+  if (!slot.carId) return false;
+  const mine = identity.effective.carId === slot.carId;
+  return mine || (identity.role === "admin" && !identity.isImpersonating);
+}
+
+// Réserver un créneau pour son équipe, le reprendre à une autre, ou le libérer
+// (carId vide). N'importe quel membre de l'équipe concernée peut le faire.
+export async function bookMealSlot(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   const identity = await tripIdentity(tripId);
   if (!identity) return;
-  const carId = Number(formData.get("carId"));
-  const car = await getCar(carId);
-  if (!car || car.tripId !== tripId) return;
-  if (identity.effective.carId !== carId && identity.role !== "admin") return;
+  const day = Number(formData.get("day"));
+  const meal = Number(formData.get("meal"));
+  if (!(day >= 0) || !(meal >= 0 && meal <= 2)) return;
+  const isAdmin = identity.role === "admin";
+  const carRaw = String(formData.get("carId") ?? "");
+  const slot = await prisma.mealSlot.findUnique({
+    where: { tripId_day_meal: { tripId, day, meal } },
+  });
+
+  if (carRaw === "") {
+    // Libérer : réservé à un membre de l'équipe inscrite (ou à l'admin)
+    if (!slot || !slot.carId) return;
+    if (identity.effective.carId !== slot.carId && !isAdmin) return;
+    await prisma.mealSlot.update({ where: { id: slot.id }, data: { carId: null } });
+  } else {
+    // Réserver / reprendre : on ne peut inscrire que sa propre équipe
+    const carId = Number(carRaw);
+    const car = await getCar(carId);
+    if (!car || car.tripId !== tripId) return;
+    if (identity.effective.carId !== carId && !isAdmin) return;
+    await prisma.mealSlot.upsert({
+      where: { tripId_day_meal: { tripId, day, meal } },
+      update: { carId },
+      create: { tripId, day, meal, carId },
+    });
+  }
+  refresh();
+}
+
+export async function updateMealMenu(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const day = Number(formData.get("day"));
+  const meal = Number(formData.get("meal"));
+  const slot = await prisma.mealSlot.findUnique({
+    where: { tripId_day_meal: { tripId, day, meal } },
+  });
+  if (!slot || !canEditMealSlot(identity, slot)) return;
   const menu = String(formData.get("menu") ?? "");
-  const shopping = String(formData.get("shopping") ?? "");
-  await prisma.car.update({ where: { id: carId }, data: { menu, shopping } });
+  await prisma.mealSlot.update({ where: { id: slot.id }, data: { menu } });
+  refresh();
+}
+
+export async function addMealShopItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const day = Number(formData.get("day"));
+  const meal = Number(formData.get("meal"));
+  const text = String(formData.get("text") ?? "").trim();
+  if (!text) return;
+  const slot = await prisma.mealSlot.findUnique({
+    where: { tripId_day_meal: { tripId, day, meal } },
+  });
+  if (!slot || !canEditMealSlot(identity, slot)) return;
+  await prisma.mealShopItem.create({ data: { slotId: slot.id, text } });
+  refresh();
+}
+
+export async function toggleMealShopItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const itemId = Number(formData.get("itemId"));
+  const item = await prisma.mealShopItem.findUnique({
+    where: { id: itemId },
+    include: { slot: true },
+  });
+  if (!item || item.slot.tripId !== tripId || !canEditMealSlot(identity, item.slot)) return;
+  await prisma.mealShopItem.update({ where: { id: itemId }, data: { done: !item.done } });
+  refresh();
+}
+
+export async function deleteMealShopItem(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  const itemId = Number(formData.get("itemId"));
+  const item = await prisma.mealShopItem.findUnique({
+    where: { id: itemId },
+    include: { slot: true },
+  });
+  if (!item || item.slot.tripId !== tripId || !canEditMealSlot(identity, item.slot)) return;
+  await prisma.mealShopItem.delete({ where: { id: itemId } });
   refresh();
 }
 

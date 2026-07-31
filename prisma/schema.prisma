@@ -50,6 +50,7 @@ model Trip {
   tents          Tent[]
   gearCategories GearCategory[]
   gearItems      GearItem[]
+  mealSlots      MealSlot[]
 
   @@map("trip")
 }
@@ -130,6 +131,7 @@ model Car {
   trip      Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
   owner     Participant? @relation("CarOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   occupants Participant[] @relation("CarOccupants")
+  mealSlots MealSlot[]   @relation("MealSlotTeam")
 
   @@map("car")
 }
@@ -185,4 +187,36 @@ model GearClaim {
 
   @@id([itemId, participantId])
   @@map("gear_claim")
+}
+
+/// Un créneau repas = un jour (index dans le séjour) × un service.
+/// Une équipe (= une voiture) s'y inscrit pour cuisiner pour tout le groupe.
+model MealSlot {
+  id     Int    @id @default(autoincrement())
+  tripId Int
+  /// Index du jour dans le séjour (0 = premier jour)
+  day    Int
+  /// Service : 0 = petit-déjeuner, 1 = déjeuner, 2 = souper
+  meal   Int
+  /// Équipe (voiture) qui prend en charge le créneau ; null = libre
+  carId  Int?
+  menu   String @default("")
+
+  trip Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  car  Car?           @relation("MealSlotTeam", fields: [carId], references: [id], onDelete: SetNull)
+  shop MealShopItem[]
+
+  @@unique([tripId, day, meal])
+  @@map("meal_slot")
+}
+
+model MealShopItem {
+  id     Int     @id @default(autoincrement())
+  slotId Int
+  text   String
+  done   Boolean @default(false)
+
+  slot MealSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@map("meal_shop_item")
 }

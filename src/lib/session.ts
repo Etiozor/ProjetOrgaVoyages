@@ -13,11 +13,18 @@ export interface SessionData {
   uid?: number;
   /** Participant impersonné par un admin (D-16 porté sur le modèle téléphone) */
   actAs?: number;
+  /** Un admin peut basculer en « vue participant » pour tester l'app sans droits admin */
+  viewParticipant?: boolean;
 }
 
 export interface TripIdentity {
   user: User;
+  /** Rôle effectif (un admin en « vue participant » vaut "participant") */
   role: "admin" | "participant";
+  /** Vrai si l'utilisateur est réellement admin, indépendamment de la vue */
+  isActuallyAdmin: boolean;
+  /** Vrai si un admin s'est mis en vue participant */
+  viewingAsParticipant: boolean;
   /** Ligne participant de l'utilisateur connecté dans ce voyage */
   participant: Participant;
   /** Participant effectif au nom duquel on agit (= participant, ou actAs pour l'admin) */
@@ -99,7 +106,11 @@ export async function tripIdentity(tripId: number): Promise<TripIdentity | null>
   if (!user) return null;
   const participant = await getParticipantByUser(tripId, user.id);
   if (!participant) return null;
-  const role = participant.role === "admin" ? "admin" : "participant";
+  const isActuallyAdmin = participant.role === "admin";
+  // Un admin peut se mettre en « vue participant » : son rôle effectif devient participant.
+  const viewingAsParticipant = isActuallyAdmin && Boolean(s.viewParticipant);
+  const role: "admin" | "participant" =
+    isActuallyAdmin && !viewingAsParticipant ? "admin" : "participant";
 
   let effective = participant;
   let isImpersonating = false;
@@ -110,7 +121,15 @@ export async function tripIdentity(tripId: number): Promise<TripIdentity | null>
       isImpersonating = true;
     }
   }
-  return { user, role, participant, effective, isImpersonating };
+  return {
+    user,
+    role,
+    isActuallyAdmin,
+    viewingAsParticipant,
+    participant,
+    effective,
+    isImpersonating,
+  };
 }
 
 export async function requireTripIdentity(tripId: number): Promise<TripIdentity> {
