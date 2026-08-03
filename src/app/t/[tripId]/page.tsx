@@ -3,6 +3,7 @@ import {
   getAnnouncements,
   getGearClaims,
   getGearItems,
+  getMealSlots,
   getParticipants,
   getReactions,
   getTripById,
@@ -50,6 +51,7 @@ export default async function AnnouncementsPage({
   const participants = await getParticipants(tripId);
   const gearItems = await getGearItems(tripId);
   const gearClaims = await getGearClaims(tripId);
+  const mealSlots = trip.pageMeals ? await getMealSlots(tripId) : [];
   const total = participants.length;
 
   // ---- « Le voyage d'un coup d'œil » : chiffres-clés + prochaine action ----
@@ -99,20 +101,67 @@ export default async function AnnouncementsPage({
     },
   ];
 
-  // Prochaine action prioritaire de l'utilisateur courant (respecte les pages actives).
-  let todo: { line: string; href: string } | null = null;
-  if (pendingForMe > 0) {
-    todo = {
-      line: `À faire : réagir à ${pendingForMe} annonce${pendingForMe > 1 ? "s" : ""}`,
-      href: `/t/${tripId}#annonces`,
-    };
-  } else if (me && !me.carId && trip.pageCarpool) {
-    todo = { line: "À faire : choisir ta place en voiture", href: `/t/${tripId}/carpool` };
-  } else if (me && !me.tentId && trip.pageTents) {
-    todo = { line: "À faire : choisir ta tente", href: `/t/${tripId}/tents` };
-  }
-  // Le matos incomplet reste visible via la tuile « Matos incomplet » ci-dessus,
-  // mais ne déclenche plus le bandeau « À faire ».
+  // ---- « Pour bien démarrer » : parcours d'arrivée du voyageur ----
+  // Les 4 étapes qu'un nouvel arrivant doit franchir, dans l'ordre. On ne garde
+  // que celles dont la page est active, et la carte disparaît une fois tout coché
+  // (donc invisible pour les habitués : discret, mais lisible pour un nouveau).
+  const myGearClaims = gearClaims.filter(
+    (c) => c.participantId === identity.effective.id
+  ).length;
+  const myTeamMeals = me?.carId
+    ? mealSlots.filter((s) => s.carId === me.carId).length
+    : 0;
+
+  type Step = { key: string; label: string; hint: string; done: boolean; href: string };
+  const onboarding: (Step | null)[] = [
+    {
+      key: "presence",
+      label: "Confirme ta présence",
+      hint: "Dis au groupe que tu es bien du voyage",
+      done: !!me?.isConfirmed,
+      href: `/t/${tripId}/participants`,
+    },
+    trip.pageCarpool
+      ? {
+          key: "team",
+          label: "Choisis ton équipe",
+          hint: "Monte dans une voiture",
+          done: !!me?.carId,
+          href: `/t/${tripId}/carpool`,
+        }
+      : null,
+    trip.requireReaction
+      ? {
+          key: "react",
+          label: "Réagis aux annonces",
+          hint:
+            pendingForMe > 0
+              ? `${pendingForMe} annonce${pendingForMe > 1 ? "s" : ""} en attente`
+              : "Tu es à jour",
+          done: pendingForMe === 0,
+          href: `/t/${tripId}#annonces`,
+        }
+      : null,
+    trip.pageGear || trip.pageMeals
+      ? {
+          key: "contrib",
+          label:
+            trip.pageGear && trip.pageMeals
+              ? "Contribue au matos & aux repas"
+              : trip.pageGear
+                ? "Réserve du matos à apporter"
+                : "Propose-toi pour un repas",
+          hint: "Prends ta part de la logistique",
+          done: myGearClaims > 0 || myTeamMeals > 0,
+          href: trip.pageGear ? `/t/${tripId}/gear` : `/t/${tripId}/meals`,
+        }
+      : null,
+  ];
+  const steps = onboarding.filter((s): s is Step => s !== null);
+  const doneCount = steps.filter((s) => s.done).length;
+  const nextIdx = steps.findIndex((s) => !s.done);
+  const showOnboarding = Boolean(me) && nextIdx !== -1;
+  const remaining = steps.length - doneCount;
 
   return (
     <div className="flex flex-col gap-4">
@@ -179,17 +228,107 @@ export default async function AnnouncementsPage({
             </div>
           ))}
         </div>
-        {todo && (
-          <Link
-            href={todo.href}
-            className="flex items-center justify-between gap-2.5 px-4 py-2.5 text-[0.75rem] tracking-[0.04em]"
-            style={{ background: "#f4e285", color: "#2b2b2b", borderTop: "1px solid var(--hair)" }}
-          >
-            <span>{todo.line}</span>
-            <span aria-hidden>→</span>
-          </Link>
-        )}
       </div>
+
+      {/* Pour bien démarrer — parcours d'arrivée, se referme une fois complété */}
+      {showOnboarding && (
+        <div className="card !p-0 overflow-hidden">
+          <div className="px-4 pt-3.5 pb-3 flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="eyebrow">Pour bien démarrer</span>
+              <span className="serif !text-base leading-[1.3]">
+                {doneCount === 0
+                  ? "Bienvenue ! Voici tes étapes pour rejoindre le voyage"
+                  : `Plus que ${remaining} étape${remaining > 1 ? "s" : ""} et tu es prêt·e`}
+              </span>
+            </div>
+            <span
+              className="shrink-0 text-[0.7rem] font-bold tabular-nums px-2 py-1"
+              style={{
+                borderRadius: 3,
+                color: "var(--accent)",
+                background: "var(--accent-soft)",
+              }}
+            >
+              {doneCount}/{steps.length}
+            </span>
+          </div>
+          <ol style={{ borderTop: "1px solid var(--hair)" }}>
+            {steps.map((s, i) => {
+              const isNext = i === nextIdx;
+              const row = (
+                <div
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{
+                    background: isNext ? "var(--accent-soft)" : "transparent",
+                    ...(i > 0 ? { borderTop: "1px solid var(--hair)" } : {}),
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    className="shrink-0 flex items-center justify-center text-[0.7rem] font-bold"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 999,
+                      color: s.done
+                        ? "#fff"
+                        : isNext
+                          ? "var(--warn-text)"
+                          : "var(--muted)",
+                      background: s.done
+                        ? "var(--ok)"
+                        : isNext
+                          ? "var(--warn-bg)"
+                          : "transparent",
+                      border: s.done
+                        ? "none"
+                        : isNext
+                          ? "none"
+                          : "1px solid var(--hair)",
+                    }}
+                  >
+                    {s.done ? "✓" : i + 1}
+                  </span>
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span
+                      className="text-[0.8rem] leading-tight"
+                      style={{
+                        fontWeight: isNext ? 700 : 500,
+                        color: s.done ? "var(--muted)" : "var(--text)",
+                        textDecoration: s.done ? "line-through" : "none",
+                      }}
+                    >
+                      {s.label}
+                    </span>
+                    {!s.done && (
+                      <span className="muted text-[0.68rem] leading-tight">{s.hint}</span>
+                    )}
+                  </span>
+                  {!s.done && (
+                    <span
+                      aria-hidden
+                      className="ml-auto shrink-0 text-[0.85rem]"
+                      style={{ color: isNext ? "var(--warn-bg)" : "var(--muted)" }}
+                    >
+                      →
+                    </span>
+                  )}
+                </div>
+              );
+              return s.done ? (
+                <li key={s.key}>{row}</li>
+              ) : (
+                <li key={s.key}>
+                  <Link href={s.href} className="block">
+                    {row}
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
 
       {identity.role === "admin" && (
         <AnnouncementComposer
