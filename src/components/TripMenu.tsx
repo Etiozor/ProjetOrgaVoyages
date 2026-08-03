@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { logout, toggleTheme, toggleTravelerView } from "@/lib/actions";
+import { ShareSheet } from "@/components/ShareSheet";
 
 /**
  * Menu du voyage — bouton « … » en haut à droite (maquette « TRIP'IN Mobile »).
@@ -33,37 +34,11 @@ export function TripMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const close = () => setOpen(false);
 
   // Le portal ne peut cibler document.body qu'après le montage (SSR-safe).
   useEffect(() => setMounted(true), []);
-
-  // Lien direct vers le voyage : /join?code=… — même cible que le champ « code »
-  // de l'accueil. Le destinataire rejoint sans avoir à retaper le code ; s'il est
-  // déjà membre, il atterrit droit sur le voyage.
-  async function shareTrip() {
-    const url = `${window.location.origin}/join?code=${encodeURIComponent(accessCode)}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({
-          title: `TRIP'IN — ${tripName}`,
-          text: `Rejoins « ${tripName} » sur TRIP'IN`,
-          url,
-        });
-      } catch {
-        /* partage annulé par l'utilisateur — rien à faire */
-      }
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2200);
-    } catch {
-      window.prompt("Copie ce lien pour inviter au voyage :", url);
-    }
-  }
 
   const hint = "text-[0.65rem] muted whitespace-nowrap";
 
@@ -106,14 +81,15 @@ export function TripMenu({
 
             <button
               type="button"
-              onClick={shareTrip}
+              onClick={() => {
+                close();
+                setShareOpen(true);
+              }}
               className="menu-item"
               style={{ color: "var(--accent)", borderColor: "var(--accent)" }}
             >
-              <span>{copied ? "Lien copié ✓" : "Partager le voyage"}</span>
-              <span className={hint}>
-                {copied ? "collez-le où vous voulez" : "inviter · lien direct"}
-              </span>
+              <span>Partager le voyage</span>
+              <span className={hint}>inviter · lien direct</span>
             </button>
 
             {isAdmin && (
@@ -175,6 +151,13 @@ export function TripMenu({
         </div>,
           document.body
         )}
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        code={accessCode}
+        tripName={tripName}
+      />
     </>
   );
 }
