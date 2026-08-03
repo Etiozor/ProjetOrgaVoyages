@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getParticipants, getPendingCount, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { adminActAs } from "@/lib/actions";
+import { adminActAs, toggleTravelerView } from "@/lib/actions";
 import { TabBar } from "@/components/TabBar";
 import { TripMenu } from "@/components/TripMenu";
 
@@ -84,7 +84,10 @@ export default async function TripLayout({
             <TripMenu
               tripId={tripId}
               tripName={trip.name}
+              accessCode={trip.accessCode}
               isAdmin={identity.role === "admin"}
+              isActuallyAdmin={identity.isActuallyAdmin}
+              viewingAsParticipant={identity.viewingAsParticipant}
               theme={theme}
             />
           </div>
@@ -126,6 +129,29 @@ export default async function TripLayout({
             Mode « agir en tant que » : tes actions sont faites au nom de{" "}
             {identity.effective.name}.
           </div>
+        )}
+
+        {identity.viewingAsParticipant && (
+          <form
+            action={toggleTravelerView}
+            className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 border-b px-4 py-2"
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <input type="hidden" name="tripId" value={tripId} />
+            <span className="text-[0.7rem] font-medium tracking-[0.04em]">
+              Mode voyageur — aperçu de l&apos;app sans les droits admin.
+            </span>
+            <button
+              type="submit"
+              className="btn-ghost shrink-0 !min-h-0 !px-2.5 !py-1 !text-[0.7rem]"
+            >
+              Revenir en admin
+            </button>
+          </form>
         )}
       </header>
 

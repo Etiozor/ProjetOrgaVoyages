@@ -36,17 +36,27 @@ function refresh() {
 
 // ---------- Auth (AUTH-10/11) ----------
 
+/** N'autorise qu'un chemin interne relatif comme destination (anti open-redirect). */
+function safeNext(raw: string): string {
+  return raw.startsWith("/") && !raw.startsWith("//") ? raw : "";
+}
+
 export async function loginWithPhone(formData: FormData) {
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const next = safeNext(String(formData.get("next") ?? ""));
   if (phone.replace(/\D/g, "").length < 8) {
-    redirect("/login?error=phone");
+    const p = new URLSearchParams({ error: "phone" });
+    if (next) p.set("next", next);
+    redirect(`/login?${p.toString()}`);
   }
   const user = await getUserByPhone(phone);
   if (user) {
     await writeSession({ uid: user.id });
-    redirect("/");
+    redirect(next || "/");
   }
-  redirect(`/login?step=name&phone=${encodeURIComponent(phone)}`);
+  const p = new URLSearchParams({ step: "name", phone });
+  if (next) p.set("next", next);
+  redirect(`/login?${p.toString()}`);
 }
 
 export async function registerUser(formData: FormData) {
@@ -54,6 +64,7 @@ export async function registerUser(formData: FormData) {
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
+  const next = safeNext(String(formData.get("next") ?? ""));
   if (phone.replace(/\D/g, "").length < 8) redirect("/login?error=phone");
 
   const back = (error: string) => {
@@ -61,6 +72,7 @@ export async function registerUser(formData: FormData) {
     if (firstName) params.set("firstName", firstName);
     if (lastName) params.set("lastName", lastName);
     if (email) params.set("email", email);
+    if (next) params.set("next", next);
     redirect(`/login?${params.toString()}`);
   };
   if (!firstName || !lastName) back("name");
@@ -70,7 +82,7 @@ export async function registerUser(formData: FormData) {
     (await getUserByPhone(phone)) ??
     (await createUser({ phone, firstName, lastName, email }));
   await writeSession({ uid: user.id });
-  redirect("/");
+  redirect(next || "/");
 }
 
 export async function logout() {
@@ -134,11 +146,34 @@ export async function joinAsNewParticipant(formData: FormData) {
   redirect(`/t/${trip.id}`);
 }
 
+/**
+ * Normalise un lien de carte fourni par l'utilisateur.
+ * Accepte seulement http/https (ajoute https:// si le schéma manque) — évite
+ * les href dangereux type `javascript:`. Renvoie "" si ce n'est pas une URL.
+ */
+function sanitizeMapUrl(raw: string): string {
+  let s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (!/^https?:\/\//i.test(s)) {
+    // « maps.google.com/… » sans schéma → on préfixe, sinon on rejette.
+    if (/^[\w-]+(\.[\w-]+)+/.test(s)) s = "https://" + s;
+    else return "";
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.toString();
+  } catch {
+    /* URL invalide */
+  }
+  return "";
+}
+
 export async function createTrip(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) redirect("/new?error=name");
   const location = String(formData.get("location") ?? "").trim();
+  const locationUrl = sanitizeMapUrl(String(formData.get("locationUrl") ?? ""));
   const startDate = String(formData.get("startDate") ?? "").trim();
   const endDate = String(formData.get("endDate") ?? "").trim();
   const meetingPoint = String(formData.get("meetingPoint") ?? "").trim();
@@ -149,6 +184,7 @@ export async function createTrip(formData: FormData) {
     data: {
       name,
       location,
+      locationUrl,
       startDate,
       endDate,
       meetingPoint,
@@ -185,7 +221,12 @@ export async function updateTripSettings(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const capacity = Number(formData.get("capacity"));
   if (!name || !(capacity >= 1)) return;
-  await prisma.trip.update({ where: { id: tripId }, data: { name, capacity } });
+  const location = String(formData.get("location") ?? "").trim();
+  const locationUrl = sanitizeMapUrl(String(formData.get("locationUrl") ?? ""));
+  await prisma.trip.update({
+    where: { id: tripId },
+    data: { name, capacity, location, locationUrl },
+  });
   refresh();
 }
 
@@ -206,6 +247,22 @@ export async function adminActAs(formData: FormData) {
   await writeSession({
     uid: identity.user.id,
     actAs: pid > 0 && pid !== identity.participant.id ? pid : undefined,
+  });
+  refresh();
+}
+
+// Bascule admin ↔ voyageur : un vrai admin peut voir l'app comme un voyageur
+// ordinaire (rôle effectif « participant »), et revenir quand il veut.
+export async function toggleTravelerView(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity || !identity.isActuallyAdmin) return;
+  const session = await readSession();
+  await writeSession({
+    ...session,
+    viewParticipant: !identity.viewingAsParticipant,
+    // En vue voyageur on abandonne toute impersonation active (cohérence de vue).
+    actAs: undefined,
   });
   refresh();
 }

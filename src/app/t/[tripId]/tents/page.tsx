@@ -2,6 +2,12 @@ import { redirect } from "next/navigation";
 import { getParticipants, getTents, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { declareTent, joinTent, leaveTent } from "@/lib/actions";
+import { TentIcon } from "@/components/TentIcon";
+import { CapacityStepper } from "@/components/CapacityStepper";
+
+function initials(name: string): string {
+  return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
+}
 
 export default async function TentsPage({
   params,
@@ -28,22 +34,145 @@ export default async function TentsPage({
         </p>
       </div>
 
+      {tents.length === 0 && (
+        <p className="muted">Aucune tente déclarée pour l&apos;instant.</p>
+      )}
+
+      {tents.map((tent) => {
+        const owner = participants.find((p) => p.id === tent.ownerId);
+        const occupants = participants.filter((p) => p.tentId === tent.id);
+        const free = tent.capacity - occupants.length;
+        const iAmIn = occupants.some((p) => p.id === me.id);
+        const iOwnIt = tent.ownerId === me.id;
+        const isFull = free <= 0;
+        const size =
+          tent.capacity <= 2 ? "petite" : tent.capacity <= 4 ? "familiale" : "grande";
+        const descriptor =
+          size === "petite" ? "" : size === "familiale" ? "tente familiale" : "grande tente";
+        const capLine = `${tent.capacity} place${tent.capacity > 1 ? "s" : ""}${
+          descriptor ? ` · ${descriptor}` : ""
+        }`;
+
+        return (
+          <div key={tent.id} className="card flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-2.5">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+                {tent.label}
+              </span>
+              <span
+                className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
+                style={
+                  isFull
+                    ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }
+                    : { background: "var(--accent-soft)", color: "var(--accent)" }
+                }
+              >
+                {isFull ? "Complète" : `${free} libre${free > 1 ? "s" : ""}`}
+              </span>
+            </div>
+
+            {/* Grille de places : occupants + emplacements libres (cliquer pour rejoindre) */}
+            <div className="flex flex-wrap gap-1.5">
+              {occupants.map((p) => {
+                const isMe = p.id === me.id;
+                return (
+                  <span
+                    key={p.id}
+                    title={isMe ? `${p.name} (toi)` : p.name}
+                    className="flex flex-col items-center justify-center gap-0.5"
+                    style={{
+                      width: 46,
+                      height: 52,
+                      borderRadius: 3,
+                      background: isMe ? "var(--accent)" : "var(--accent-soft)",
+                      border: `1px solid ${
+                        isMe ? "var(--accent)" : "color-mix(in srgb, var(--accent), transparent 50%)"
+                      }`,
+                      color: isMe ? "var(--bg)" : "var(--text)",
+                    }}
+                  >
+                    <span className="text-xs font-bold">{initials(p.name)}</span>
+                    {isMe && <span className="text-[8px] tracking-[0.06em] opacity-75">toi</span>}
+                  </span>
+                );
+              })}
+
+              {Array.from({ length: Math.max(0, free) }).map((_, i) =>
+                !myTentId ? (
+                  <form key={`free-${i}`} action={joinTent}>
+                    <input type="hidden" name="tripId" value={tripId} />
+                    <input type="hidden" name="tentId" value={tent.id} />
+                    <button
+                      type="submit"
+                      title="Dormir dans cette tente"
+                      className="flex flex-col items-center justify-center gap-0.5"
+                      style={{
+                        width: 46,
+                        height: 52,
+                        borderRadius: 3,
+                        border: "1px dashed rgba(0,0,0,.2)",
+                        color: "var(--muted)",
+                        background: "transparent",
+                      }}
+                    >
+                      <span className="text-xs">+</span>
+                      <span className="text-[8px] opacity-75">libre</span>
+                    </button>
+                  </form>
+                ) : (
+                  <span
+                    key={`free-${i}`}
+                    className="flex flex-col items-center justify-center gap-0.5"
+                    style={{
+                      width: 46,
+                      height: 52,
+                      borderRadius: 3,
+                      border: "1px dashed rgba(0,0,0,.2)",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    <span className="text-xs">+</span>
+                    <span className="text-[8px] opacity-75">libre</span>
+                  </span>
+                )
+              )}
+            </div>
+
+            {/* Silhouette de tente selon la capacité */}
+            <div className="flex items-end gap-3">
+              <TentIcon capacity={tent.capacity} />
+              <span className="text-[0.7rem] tracking-[0.05em] muted pb-0.5 whitespace-nowrap">
+                {capLine}
+              </span>
+            </div>
+
+            <p className="text-[0.8rem] muted">
+              Dedans · {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/
+              {tent.capacity}){!owner && " · ajoutée par l'admin"}
+            </p>
+
+            {iAmIn && (
+              <form action={leaveTent}>
+                <input type="hidden" name="tripId" value={tripId} />
+                <button
+                  className="btn-ghost self-start"
+                  style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                >
+                  {iOwnIt ? "Retirer ma tente" : "Quitter la tente"}
+                </button>
+              </form>
+            )}
+          </div>
+        );
+      })}
+
       {canDeclare && (
         <form action={declareTent} className="card-dashed flex flex-col gap-2.5">
           <input type="hidden" name="tripId" value={tripId} />
           <p className="eyebrow">Je ramène ma tente</p>
           <div className="flex gap-2">
             <input name="label" className="input" placeholder="Nom / modèle (ex. Quechua 4p)" />
-            <input
-              name="capacity"
-              type="number"
-              min={1}
-              max={12}
-              defaultValue={4}
-              className="input !w-28"
-              placeholder="Places"
-              required
-            />
+            <CapacityStepper name="capacity" defaultValue={4} min={1} max={12} />
           </div>
           <button className="btn self-end">Déclarer ma tente</button>
         </form>
@@ -54,47 +183,6 @@ export default async function TentsPage({
           L&apos;admin a désactivé l&apos;ajout de tentes par les participants.
         </p>
       )}
-
-      {tents.length === 0 && <p className="muted">Aucune tente déclarée pour l&apos;instant.</p>}
-
-      {tents.map((tent) => {
-        const owner = participants.find((p) => p.id === tent.ownerId);
-        const occupants = participants.filter((p) => p.tentId === tent.id);
-        const free = tent.capacity - occupants.length;
-        const iAmIn = occupants.some((p) => p.id === me.id);
-        const iOwnIt = tent.ownerId === me.id;
-        return (
-          <div key={tent.id} className="card flex flex-col gap-2.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
-                {tent.label}
-              </span>
-              <span className="tag shrink-0" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
-                {free > 0 ? `${free} libre${free > 1 ? "s" : ""}` : "Complète"}
-              </span>
-            </div>
-            <p className="text-[0.8rem] muted">
-              Dedans · {occupants.map((p) => p.name).join(", ") || "—"} ({occupants.length}/{tent.capacity})
-              {!owner && " · ajoutée par l'admin"}
-            </p>
-            {!iAmIn && free > 0 && !myTentId && (
-              <form action={joinTent}>
-                <input type="hidden" name="tripId" value={tripId} />
-                <input type="hidden" name="tentId" value={tent.id} />
-                <button className="btn">Dormir dans cette tente</button>
-              </form>
-            )}
-            {iAmIn && (
-              <form action={leaveTent}>
-                <input type="hidden" name="tripId" value={tripId} />
-                <button className="btn-ghost" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
-                  {iOwnIt ? "Retirer ma tente" : "Quitter la tente"}
-                </button>
-              </form>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

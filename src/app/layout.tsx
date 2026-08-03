@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Barlow, Oswald, Cormorant_Garamond } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
+import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
 
 const barlow = Barlow({
   weight: ["400", "500", "600", "700"],
@@ -41,7 +42,10 @@ export default async function RootLayout({
       data-theme={theme}
       className={`${barlow.variable} ${oswald.variable} ${cormorant.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <InAppBrowserBanner />
+        {children}
+      </body>
     </html>
   );
 }

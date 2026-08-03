@@ -6,7 +6,7 @@ import {
   getTripByCode,
   getUnclaimedParticipants,
 } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { currentUser } from "@/lib/session";
 import { claimParticipant, joinAsNewParticipant } from "@/lib/actions";
 
 export default async function JoinPage({
@@ -15,8 +15,14 @@ export default async function JoinPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
-  const user = await requireUser();
   const code = params.code ?? "";
+  // Visiteur non connecté (typiquement invité via un lien partagé) : on l'envoie
+  // se connecter en gardant la destination, pour le ramener ici et le faire
+  // rejoindre sans avoir à retaper le code.
+  const user = await currentUser();
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(`/join?code=${code}`)}`);
+  }
   const trip = code ? await getTripByCode(code) : null;
   if (!trip) redirect("/?error=code");
   if (await getParticipantByUser(trip.id, user.id)) redirect(`/t/${trip.id}`);

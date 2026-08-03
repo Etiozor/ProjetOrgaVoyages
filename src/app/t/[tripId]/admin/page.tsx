@@ -65,6 +65,26 @@ export default async function AdminPage({
         <p className="eyebrow">Réglages du voyage</p>
         <label className="eyebrow">Nom</label>
         <input name="name" className="input" defaultValue={trip.name} required />
+        <label className="eyebrow">Lieu</label>
+        <input
+          name="location"
+          className="input"
+          defaultValue={trip.location}
+          placeholder="ex. Parc de la Mauricie"
+        />
+        <label className="eyebrow">Lien Google Maps du lieu</label>
+        <input
+          name="locationUrl"
+          type="url"
+          inputMode="url"
+          className="input"
+          defaultValue={trip.locationUrl}
+          placeholder="https://maps.app.goo.gl/…"
+        />
+        <p className="muted text-xs leading-relaxed">
+          Avec un lien, le lieu devient cliquable dans « le voyage d&apos;un coup
+          d&apos;œil » et ouvre la carte.
+        </p>
         <label className="eyebrow">Participants attendus</label>
         <input
           name="capacity"

@@ -38,6 +38,17 @@ export default async function NewTripPage({
         <div className="flex flex-col gap-2">
           <label className="eyebrow">Lieu</label>
           <input name="location" className="input" placeholder="ex. Parc de la Mauricie" />
+          <input
+            name="locationUrl"
+            type="url"
+            inputMode="url"
+            className="input"
+            placeholder="Lien Google Maps (facultatif)"
+          />
+          <p className="muted text-xs leading-relaxed">
+            Colle un lien Google Maps du lieu : le nom devient cliquable dans « le voyage
+            d&apos;un coup d&apos;œil ».
+          </p>
         </div>
         <div className="flex gap-2">
           <div className="flex-1 flex flex-col gap-2">

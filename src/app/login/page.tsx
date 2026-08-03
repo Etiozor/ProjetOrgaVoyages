@@ -8,8 +8,12 @@ export default async function LoginPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
+  // Destination post-connexion (ex. lien d'invitation /join?code=…). On ne
+  // suit que les chemins internes relatifs — anti open-redirect.
+  const nextRaw = params.next ?? "";
+  const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "";
   const user = await currentUser();
-  if (user) redirect("/");
+  if (user) redirect(next || "/");
 
   const step = params.step ?? "phone";
   const error = params.error;
@@ -40,6 +44,7 @@ export default async function LoginPage({
           </div>
 
           <form action={loginWithPhone} className="card flex flex-col gap-3">
+            {next && <input type="hidden" name="next" value={next} />}
             <label className="eyebrow">Ton numéro de cellulaire</label>
             <input
               name="phone"
@@ -66,6 +71,7 @@ export default async function LoginPage({
       {step === "name" && (
         <form action={registerUser} className="flex flex-col gap-5">
           <input type="hidden" name="phone" value={phone} />
+          {next && <input type="hidden" name="next" value={next} />}
           <h1 className="text-2xl">Se présenter</h1>
           <p className="serif">
             Première connexion avec le {phone || "numéro fourni"} — fais-toi connaître

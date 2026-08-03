@@ -110,12 +110,9 @@ export default async function AnnouncementsPage({
     todo = { line: "À faire : choisir ta place en voiture", href: `/t/${tripId}/carpool` };
   } else if (me && !me.tentId && trip.pageTents) {
     todo = { line: "À faire : choisir ta tente", href: `/t/${tripId}/tents` };
-  } else if (gearMissing > 0 && trip.pageGear) {
-    todo = {
-      line: `À faire : ${gearMissing} item de matos incomplet${gearMissing > 1 ? "s" : ""}`,
-      href: `/t/${tripId}/gear`,
-    };
   }
+  // Le matos incomplet reste visible via la tuile « Matos incomplet » ci-dessus,
+  // mais ne déclenche plus le bandeau « À faire ».
 
   return (
     <div className="flex flex-col gap-4">
@@ -126,8 +123,36 @@ export default async function AnnouncementsPage({
           <span className="font-[family-name:var(--font-oswald)] text-[1.6rem] font-bold uppercase tracking-[0.04em] leading-[1.05] mt-1">
             {datesLabel}
           </span>
-          {trip.location && (
-            <span className="serif !text-base leading-[1.4]">{trip.location}</span>
+          {trip.location &&
+            (trip.locationUrl ? (
+              <a
+                href={trip.locationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="serif !text-base leading-[1.4] inline-flex items-baseline gap-1 self-start"
+                style={{ color: "var(--accent)" }}
+              >
+                {trip.location}
+                <span aria-hidden className="not-italic text-[0.75em]">
+                  ↗
+                </span>
+              </a>
+            ) : (
+              <span className="serif !text-base leading-[1.4]">{trip.location}</span>
+            ))}
+          {!trip.location && trip.locationUrl && (
+            <a
+              href={trip.locationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="serif !text-base leading-[1.4] inline-flex items-baseline gap-1 self-start"
+              style={{ color: "var(--accent)" }}
+            >
+              Voir le lieu sur la carte
+              <span aria-hidden className="not-italic text-[0.75em]">
+                ↗
+              </span>
+            </a>
           )}
           {trip.meetingPoint && (
             <span className="muted text-[0.7rem] tracking-[0.05em] mt-1.5">

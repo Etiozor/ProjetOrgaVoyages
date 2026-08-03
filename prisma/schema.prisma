@@ -23,6 +23,8 @@ model Trip {
   id           Int    @id @default(autoincrement())
   name         String
   location     String @default("")
+  /// Lien Google Maps (ou autre carte) vers le lieu — rend le lieu cliquable
+  locationUrl  String @default("")
   startDate    String @default("")
   endDate      String @default("")
   meetingPoint String @default("")
