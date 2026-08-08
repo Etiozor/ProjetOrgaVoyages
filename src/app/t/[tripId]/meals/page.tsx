@@ -10,10 +10,12 @@ import {
 import { requireTripIdentity } from "@/lib/session";
 import { MEALS, tripDays } from "@/lib/meals";
 import { SubmitButton } from "@/components/SubmitButton";
+import { MealPlanningGrid, type MealCell } from "@/components/MealPlanningGrid";
 import {
   addMealShopItem,
   bookMealSlot,
   deleteMealShopItem,
+  setMealSlotDisabled,
   toggleMealShopItem,
   updateMealMenu,
 } from "@/lib/actions";
@@ -71,12 +73,40 @@ export default async function MealsPage({
   const slotOf = (day: number, meal: number): MealSlotWithShop | null =>
     slots.find((s) => s.day === day && s.meal === meal) ?? null;
 
-  // Couverture globale du week-end (créneaux pourvus / total).
-  const totalSlots = days.length * MEALS.length;
+  // Couverture globale du week-end : les créneaux « N/A » (désactivés par l'admin)
+  // ne comptent ni dans le total ni dans les compteurs.
+  const disabledCount = slots.filter((s) => s.disabled).length;
+  const totalSlots = days.length * MEALS.length - disabledCount;
   const bookedSlots = slots.filter((s) => s.carId).length;
-  const coverAll = bookedSlots >= totalSlots && totalSlots > 0;
+  const coverAll = totalSlots > 0 && bookedSlots >= totalSlots;
 
   const mealsHref = (di: number) => `/t/${tripId}/meals?day=${di}`;
+
+  // Cases de la grille d'ensemble (service × jour), aplaties pour le composant client.
+  const gridCells: MealCell[] = [];
+  for (let mi = 0; mi < MEALS.length; mi++) {
+    for (const d of days) {
+      const slot = slotOf(d.index, mi);
+      if (slot?.disabled) {
+        gridCells.push({
+          dayIndex: d.index,
+          mealIndex: mi,
+          kind: "disabled",
+          label: "N/A",
+          title: `${d.label} · ${MEALS[mi].label} — non prévu`,
+        });
+        continue;
+      }
+      const cellTeam = teamOf(slot?.carId ?? null);
+      gridCells.push({
+        dayIndex: d.index,
+        mealIndex: mi,
+        kind: cellTeam ? (cellTeam.isMine ? "mine" : "other") : "free",
+        label: cellTeam ? cellTeam.initials : "libre",
+        title: `${d.label} · ${MEALS[mi].label} — ${cellTeam ? cellTeam.label : "personne"}`,
+      });
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,58 +129,12 @@ export default async function MealsPage({
             {bookedSlots}/{totalSlots} créneaux pourvus
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <div
-            className="grid gap-1"
-            style={{
-              gridTemplateColumns: `48px repeat(${days.length}, minmax(52px, 1fr))`,
-            }}
-          >
-            <span />
-            {days.map((d) => (
-              <span
-                key={d.index}
-                className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-center muted"
-              >
-                {d.short}
-              </span>
-            ))}
-            {MEALS.map((m, mi) => (
-              <div key={mi} className="contents">
-                <span className="text-[0.625rem] uppercase tracking-[0.06em] muted flex items-center">
-                  {m.short}
-                </span>
-                {days.map((d) => {
-                  const team = teamOf(slotOf(d.index, mi)?.carId ?? null);
-                  const style = team
-                    ? team.isMine
-                      ? { background: "var(--accent)", color: "var(--bg)", border: "1px solid var(--accent)" }
-                      : {
-                          background: "var(--accent-soft)",
-                          color: "var(--accent)",
-                          border: "1px solid var(--accent-soft)",
-                        }
-                    : {
-                        background: "transparent",
-                        color: "#a05a20",
-                        border: "1px dashed var(--warn-bg)",
-                      };
-                  return (
-                    <Link
-                      key={d.index}
-                      href={`${mealsHref(d.index)}#slot-${mi}`}
-                      title={`${d.label} · ${m.label} — ${team ? team.label : "personne"}`}
-                      className="min-h-10 rounded-[3px] flex items-center justify-center text-[0.7rem] font-semibold tracking-[0.04em]"
-                      style={style}
-                    >
-                      {team ? team.initials : "libre"}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
+        <MealPlanningGrid
+          tripId={tripId}
+          days={days.map((d) => ({ index: d.index, short: d.short }))}
+          meals={MEALS.map((m) => m.short)}
+          cells={gridCells}
+        />
         <div className="flex flex-wrap gap-3 pt-0.5 text-[0.625rem] muted">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-[2px]" style={{ background: "var(--accent)" }} />
@@ -167,6 +151,13 @@ export default async function MealsPage({
             />
             libre
           </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-[2px]"
+              style={{ border: "1px solid var(--border)", opacity: 0.65 }}
+            />
+            N/A
+          </span>
         </div>
       </div>
 
@@ -177,7 +168,7 @@ export default async function MealsPage({
       >
         {days.map((d) => {
           const active = d.index === selectedDay;
-          const dayBookable = MEALS.length;
+          const dayBookable = MEALS.filter((_, mi) => !slotOf(d.index, mi)?.disabled).length;
           const dayBooked = MEALS.filter((_, mi) => slotOf(d.index, mi)?.carId).length;
           return (
             <Link
@@ -197,9 +188,16 @@ export default async function MealsPage({
               </span>
               <span
                 className="text-[0.625rem] tracking-[0.04em]"
-                style={{ color: dayBooked < dayBookable ? "var(--warn-bg)" : "var(--accent)" }}
+                style={{
+                  color:
+                    dayBookable === 0
+                      ? "var(--muted)"
+                      : dayBooked < dayBookable
+                        ? "var(--warn-bg)"
+                        : "var(--accent)",
+                }}
               >
-                {dayBooked}/{dayBookable}
+                {dayBookable === 0 ? "N/A" : `${dayBooked}/${dayBookable}`}
               </span>
             </Link>
           );
@@ -209,12 +207,19 @@ export default async function MealsPage({
       {/* Créneaux du jour sélectionné */}
       {MEALS.map((meal, mi) => {
         const slot = slotOf(selectedDay, mi);
-        const team = teamOf(slot?.carId ?? null);
+        const disabled = slot?.disabled ?? false;
+        const team = disabled ? null : teamOf(slot?.carId ?? null);
         const mine = team?.isMine ?? false;
         const canEdit = !!team && (mine || isAdmin);
         const shop = slot?.shop ?? [];
         const done = shop.filter((x) => x.done).length;
-        const edge = team ? (mine ? "var(--accent)" : "var(--accent-soft)") : "var(--warn-bg)";
+        const edge = disabled
+          ? "var(--border)"
+          : team
+            ? mine
+              ? "var(--accent)"
+              : "var(--accent-soft)"
+            : "var(--warn-bg)";
 
         return (
           <div
@@ -235,16 +240,42 @@ export default async function MealsPage({
               <span
                 className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
                 style={
-                  team
-                    ? mine
-                      ? { background: "var(--accent)", color: "var(--bg)" }
-                      : { background: "var(--accent-soft)", color: "var(--accent)" }
-                    : { background: "rgba(244,162,89,.18)", color: "#a05a20" }
+                  disabled
+                    ? { background: "var(--hair)", color: "var(--muted)" }
+                    : team
+                      ? mine
+                        ? { background: "var(--accent)", color: "var(--bg)" }
+                        : { background: "var(--accent-soft)", color: "var(--accent)" }
+                      : { background: "rgba(244,162,89,.18)", color: "#a05a20" }
                 }
               >
-                {team ? (mine ? "Mon équipe" : "Réservé") : "Libre"}
+                {disabled ? "N/A" : team ? (mine ? "Mon équipe" : "Réservé") : "Libre"}
               </span>
             </div>
+
+            {/* Créneau désactivé par l'admin : aucun repas prévu */}
+            {disabled && (
+              <>
+                <p className="serif !text-base muted">
+                  Créneau marqué « N/A » — aucun repas prévu par le groupe pour ce service.
+                </p>
+                {isAdmin && (
+                  <form
+                    action={setMealSlotDisabled}
+                    className="pt-2.5"
+                    style={{ borderTop: "1px solid var(--hair)" }}
+                  >
+                    <input type="hidden" name="tripId" value={tripId} />
+                    <input type="hidden" name="day" value={selectedDay} />
+                    <input type="hidden" name="meal" value={mi} />
+                    <input type="hidden" name="disabled" value="0" />
+                    <SubmitButton className="btn-ghost !min-h-0 !py-1.5 self-start">
+                      Réactiver ce créneau
+                    </SubmitButton>
+                  </form>
+                )}
+              </>
+            )}
 
             {team && (
               <div className="flex items-center gap-2.5">
@@ -398,7 +429,7 @@ export default async function MealsPage({
             )}
 
             {/* Actions de réservation */}
-            {myTeam && (
+            {!disabled && myTeam && (
               <div
                 className="flex flex-wrap gap-2 pt-2.5"
                 style={{ borderTop: "1px solid var(--hair)" }}
@@ -440,7 +471,7 @@ export default async function MealsPage({
               </div>
             )}
 
-            {!myTeam && (
+            {!disabled && !myTeam && (
               <p
                 className="text-[0.7rem] leading-relaxed muted pt-2.5"
                 style={{ borderTop: "1px solid var(--hair)" }}
@@ -448,6 +479,26 @@ export default async function MealsPage({
                 Rejoins une voiture dans l&apos;onglet Voitures pour intégrer une équipe et
                 réserver un créneau.
               </p>
+            )}
+
+            {/* Admin : marquer le créneau « N/A » (aucun repas prévu) */}
+            {!disabled && isAdmin && (
+              <form
+                action={setMealSlotDisabled}
+                className="pt-2.5"
+                style={{ borderTop: "1px solid var(--hair)" }}
+              >
+                <input type="hidden" name="tripId" value={tripId} />
+                <input type="hidden" name="day" value={selectedDay} />
+                <input type="hidden" name="meal" value={mi} />
+                <input type="hidden" name="disabled" value="1" />
+                <SubmitButton
+                  className="btn-ghost !min-h-0 !py-1 self-start"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Marquer « N/A » — pas de repas
+                </SubmitButton>
+              </form>
             )}
           </div>
         );

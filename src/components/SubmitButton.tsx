@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 /**
@@ -13,11 +13,13 @@ export function SubmitButton({
   className = "btn",
   savedLabel = "✓ Enregistré",
   pendingLabel = "Enregistrement…",
+  style,
 }: {
   children: ReactNode;
   className?: string;
   savedLabel?: string;
   pendingLabel?: string;
+  style?: CSSProperties;
 }) {
   const { pending } = useFormStatus();
   const [justSaved, setJustSaved] = useState(false);
@@ -40,6 +42,7 @@ export function SubmitButton({
       disabled={pending}
       data-saved={justSaved ? "" : undefined}
       className={`${className} submit-btn`}
+      style={style}
     >
       {pending ? pendingLabel : justSaved ? savedLabel : children}
     </button>

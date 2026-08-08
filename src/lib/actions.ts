@@ -684,6 +684,8 @@ export async function bookMealSlot(formData: FormData) {
     if (identity.effective.carId !== slot.carId && !isAdmin) return;
     await prisma.mealSlot.update({ where: { id: slot.id }, data: { carId: null } });
   } else {
+    // Un créneau marqué « N/A » par l'admin n'est pas réservable
+    if (slot?.disabled) return;
     // Réserver / reprendre : on ne peut inscrire que sa propre équipe
     const carId = Number(carRaw);
     const car = await getCar(carId);
@@ -695,6 +697,26 @@ export async function bookMealSlot(formData: FormData) {
       create: { tripId, day, meal, carId },
     });
   }
+  refresh();
+}
+
+// Marquer un créneau « N/A » (aucun repas prévu) ou le réactiver. Réservé à
+// l'admin (hors vue participant / impersonation). Désactiver libère l'équipe.
+export async function setMealSlotDisabled(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  const identity = await tripIdentity(tripId);
+  if (!identity) return;
+  if (identity.role !== "admin" || identity.isImpersonating) return;
+  const day = Number(formData.get("day"));
+  const meal = Number(formData.get("meal"));
+  if (!(day >= 0) || !(meal >= 0 && meal <= 2)) return;
+  const disabled = String(formData.get("disabled")) === "1";
+  await prisma.mealSlot.upsert({
+    where: { tripId_day_meal: { tripId, day, meal } },
+    // Désactiver libère aussi le créneau (plus d'équipe inscrite)
+    update: disabled ? { disabled: true, carId: null } : { disabled: false },
+    create: { tripId, day, meal, disabled },
+  });
   refresh();
 }
 

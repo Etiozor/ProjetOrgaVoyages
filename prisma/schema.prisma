@@ -203,6 +203,8 @@ model MealSlot {
   /// Équipe (voiture) qui prend en charge le créneau ; null = libre
   carId  Int?
   menu   String @default("")
+  /// Créneau désactivé par l'admin (« N/A ») : pas de repas prévu, non réservable
+  disabled Boolean @default(false)
 
   trip Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
   car  Car?           @relation("MealSlotTeam", fields: [carId], references: [id], onDelete: SetNull)
