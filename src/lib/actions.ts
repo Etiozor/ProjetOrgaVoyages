@@ -21,6 +21,7 @@ import {
 } from "./db";
 import { isThemeId } from "./themes";
 import { isAnnounceFont } from "./announceFonts";
+import { sendAnnouncementEmail } from "./mail";
 import {
   clearSession,
   readSession,
@@ -466,7 +467,6 @@ export async function publishAnnouncement(formData: FormData) {
     data: { tripId, content, font, authorLabel, createdAt: new Date().toISOString() },
   });
   // ANN-05 — destinataires : le courriel du compte lié, sinon celui saisi par l'admin.
-  // L'envoi réel (fournisseur SMTP) reste à brancher ; en attendant il est journalisé.
   const recipients = await prisma.participant.findMany({
     where: { tripId, isActive: true },
     include: { user: { select: { email: true } } },
@@ -474,8 +474,20 @@ export async function publishAnnouncement(formData: FormData) {
   const emails = new Set(
     recipients.map((p) => p.user?.email ?? p.email).filter((e): e is string => Boolean(e))
   );
-  for (const email of emails) {
-    console.log(`[EMAIL] À: ${email} — Nouvelle annonce: ${content.slice(0, 60)}...`);
+  // On ne se notifie pas soi-même : l'auteur reçoit déjà une copie (champ « To »).
+  emails.delete(identity.user.email);
+  // L'e-mail ne doit jamais faire échouer la publication de l'annonce.
+  try {
+    const trip = await getTripById(tripId);
+    await sendAnnouncementEmail({
+      tripId,
+      tripName: trip?.name ?? "Voyage",
+      authorLabel,
+      content,
+      recipients: [...emails],
+    });
+  } catch (err) {
+    console.error("[EMAIL] Échec de l'envoi de la notification d'annonce :", err);
   }
   refresh();
 }
