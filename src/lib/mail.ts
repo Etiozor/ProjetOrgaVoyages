@@ -83,7 +83,10 @@ export async function sendAnnouncementEmail(
     );
     return null;
   }
-  if (mail.recipients.length === 0) return null;
+  if (mail.recipients.length === 0) {
+    console.log(`[EMAIL] « ${mail.tripName} » — aucun destinataire avec adresse, rien à envoyer`);
+    return null;
+  }
 
   const from = process.env.SMTP_USER!;
   const appUrl = (process.env.APP_URL ?? "").replace(/\/+$/, "");
@@ -112,7 +115,7 @@ export async function sendAnnouncementEmail(
       }
     </div>`;
 
-  return transport.sendMail({
+  const info = await transport.sendMail({
     from: `"TRIP'IN" <${from}>`,
     // Le compte d'envoi en visible ; les participants en copie cachée.
     to: from,
@@ -121,4 +124,9 @@ export async function sendAnnouncementEmail(
     text: textLines.join("\n"),
     html,
   });
+  console.log(
+    `[EMAIL] Annonce « ${mail.tripName} » envoyée à ${mail.recipients.length} destinataire(s) — id ${info.messageId}` +
+      (info.rejected?.length ? ` (rejetés: ${info.rejected.join(", ")})` : "")
+  );
+  return info;
 }
