@@ -14,9 +14,31 @@ model User {
   lastName  String
   email     String
 
+  /// Date de la 1re vérification par magic link ; null = compte « historique »
+  /// connecté au téléphone sans preuve (migration douce en cours).
+  emailVerifiedAt DateTime?
+
   participants Participant[]
+  loginTokens  LoginToken[]
 
   @@map("user")
+}
+
+/// Jeton de connexion à usage unique (magic link) envoyé par courriel.
+/// On ne stocke que le hash du jeton, jamais sa valeur en clair.
+model LoginToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  userId    Int
+  /// Destination interne après connexion (ex. /join?code=…)
+  next      String    @default("")
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_token")
 }
 
 model Trip {

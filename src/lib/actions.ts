@@ -22,6 +22,7 @@ import {
 import { isThemeId } from "./themes";
 import { isAnnounceFont } from "./announceFonts";
 import { sendAnnouncementEmail } from "./mail";
+import { issueMagicLink } from "./magiclink";
 import {
   clearSession,
   readSession,
@@ -42,6 +43,13 @@ function safeNext(raw: string): string {
   return raw.startsWith("/") && !raw.startsWith("//") ? raw : "";
 }
 
+// Masque une adresse pour l'écran de confirmation : t***@gmail.com
+function maskEmail(e: string): string {
+  const [u, d] = e.split("@");
+  if (!d) return "ton adresse";
+  return `${u.slice(0, 1)}${"*".repeat(Math.max(1, u.length - 1))}@${d}`;
+}
+
 export async function loginWithPhone(formData: FormData) {
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
   const next = safeNext(String(formData.get("next") ?? ""));
@@ -51,11 +59,26 @@ export async function loginWithPhone(formData: FormData) {
     redirect(`/login?${p.toString()}`);
   }
   const user = await getUserByPhone(phone);
-  if (user) {
-    await writeSession({ uid: user.id });
-    redirect(next || "/");
+  if (!user) {
+    // Nouveau numéro → on bascule sur l'inscription (nom + courriel).
+    const p = new URLSearchParams({ step: "name", phone });
+    if (next) p.set("next", next);
+    redirect(`/login?${p.toString()}`);
   }
-  const p = new URLSearchParams({ step: "name", phone });
+  // Compte existant → on envoie un lien de connexion par courriel.
+  let sent = true;
+  try {
+    await issueMagicLink({ id: user.id, email: user.email, firstName: user.firstName }, next);
+  } catch (err) {
+    console.error("[MAGIC LINK] Échec de l'envoi (login) :", err);
+    sent = false;
+  }
+  if (!sent) {
+    const p = new URLSearchParams({ error: "send", phone });
+    if (next) p.set("next", next);
+    redirect(`/login?${p.toString()}`);
+  }
+  const p = new URLSearchParams({ step: "sent", email: maskEmail(user.email) });
   if (next) p.set("next", next);
   redirect(`/login?${p.toString()}`);
 }
@@ -82,8 +105,18 @@ export async function registerUser(formData: FormData) {
   const user =
     (await getUserByPhone(phone)) ??
     (await createUser({ phone, firstName, lastName, email }));
-  await writeSession({ uid: user.id });
-  redirect(next || "/");
+  // Inscription/connexion par lien : on envoie le magic link au courriel saisi.
+  let sent = true;
+  try {
+    await issueMagicLink({ id: user.id, email: user.email, firstName: user.firstName }, next);
+  } catch (err) {
+    console.error("[MAGIC LINK] Échec de l'envoi (inscription) :", err);
+    sent = false;
+  }
+  if (!sent) back("send");
+  const p = new URLSearchParams({ step: "sent", email: maskEmail(user.email) });
+  if (next) p.set("next", next);
+  redirect(`/login?${p.toString()}`);
 }
 
 export async function logout() {
