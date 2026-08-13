@@ -130,3 +130,37 @@ export async function sendAnnouncementEmail(
   );
   return info;
 }
+
+/**
+ * Envoie un lien de connexion (magic link) à une seule adresse. Si le SMTP
+ * n'est pas configuré (dev), on journalise l'URL pour pouvoir la coller à la
+ * main. À appeler dans un try/catch côté appelant.
+ */
+export async function sendMagicLinkEmail(opts: {
+  to: string;
+  firstName: string;
+  url: string;
+}): Promise<void> {
+  const { to, firstName, url } = opts;
+  const transport = getTransport();
+  if (!transport) {
+    console.log(`[EMAIL désactivé] Magic link pour ${to} : ${url}`);
+    return;
+  }
+  const from = process.env.SMTP_USER!;
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
+      <p style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin:0 0 4px">TRIP'IN · Connexion</p>
+      <p style="font-size:1rem;line-height:1.5;margin:0 0 16px">Salut ${escapeHtml(firstName)}, clique pour te connecter (lien valable 20 minutes) :</p>
+      <p style="margin:0 0 16px"><a href="${url}" style="display:inline-block;background:#8cb369;color:#fff;text-decoration:none;padding:12px 22px;border-radius:4px;font-size:0.95rem">Me connecter</a></p>
+      <p style="font-size:0.75rem;color:#888;margin:0">Si tu n'es pas à l'origine de cette demande, ignore ce message.</p>
+    </div>`;
+  await transport.sendMail({
+    from: `"TRIP'IN" <${from}>`,
+    to,
+    subject: "Ton lien de connexion TRIP'IN",
+    text: `Salut ${firstName},\n\nClique pour te connecter (lien valable 20 minutes) :\n${url}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
+    html,
+  });
+  console.log(`[EMAIL] Magic link envoyé à ${to}`);
+}

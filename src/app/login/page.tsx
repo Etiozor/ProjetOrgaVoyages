@@ -18,6 +18,7 @@ export default async function LoginPage({
   const step = params.step ?? "phone";
   const error = params.error;
   const phone = params.phone ?? "";
+  const sentTo = params.email ?? "";
 
   return (
     <div className="mx-auto max-w-sm px-6 pt-10 pb-16 flex flex-col gap-6">
@@ -39,9 +40,21 @@ export default async function LoginPage({
             <div className="eyebrow">Organisation de voyages entre amis</div>
             <hr className="rule" />
             <p className="serif">
-              Tes voyages te suivent — il te faut juste ton numéro.
+              Tes voyages te suivent — entre ton numéro et on t&apos;envoie un lien de
+              connexion par courriel.
             </p>
           </div>
+
+          {error === "link" && (
+            <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+              Ce lien est invalide ou expiré. Entre ton numéro pour en recevoir un nouveau.
+            </p>
+          )}
+          {error === "send" && (
+            <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+              L&apos;envoi du courriel a échoué. Réessaie dans un instant.
+            </p>
+          )}
 
           <form action={loginWithPhone} className="card flex flex-col gap-3">
             {next && <input type="hidden" name="next" value={next} />}
@@ -59,13 +72,32 @@ export default async function LoginPage({
                 Ce numéro ne semble pas valide, réessaie.
               </p>
             )}
-            <button className="btn w-full">Continuer</button>
+            <button className="btn w-full">Recevoir mon lien</button>
             <p className="muted text-xs leading-relaxed">
-              Pas de mot de passe. Ton numéro retrouve tous tes voyages ; tu rejoins un
-              voyage avec le code partagé par son admin.
+              Pas de mot de passe : on t&apos;envoie un lien de connexion par courriel. Ton
+              numéro retrouve tous tes voyages ; tu rejoins un voyage avec le code partagé
+              par son admin.
             </p>
           </form>
         </>
+      )}
+
+      {step === "sent" && (
+        <div className="card flex flex-col gap-3">
+          <h1 className="text-2xl">Vérifie tes courriels</h1>
+          <p className="serif">
+            On vient d&apos;envoyer un lien de connexion à{" "}
+            <span className="not-italic font-semibold">{sentTo || "ton adresse"}</span>.
+            Clique dessus pour accéder à tes voyages — le lien est valable 20 minutes.
+          </p>
+          <p className="muted text-xs leading-relaxed">
+            Pas reçu ? Vérifie tes courriels indésirables, ou{" "}
+            <a href="/login" className="underline">
+              recommence
+            </a>{" "}
+            pour en redemander un.
+          </p>
+        </div>
       )}
 
       {step === "name" && (
@@ -121,10 +153,15 @@ export default async function LoginPage({
               </p>
             )}
             <p className="muted text-xs leading-relaxed">
-              Ton courriel sert uniquement à te prévenir des nouvelles annonces de tes
-              voyages.
+              Ton courriel sert à te connecter (lien magique) et à te prévenir des
+              nouvelles annonces de tes voyages.
             </p>
-            <button className="btn w-full">C&apos;est parti</button>
+            {error === "send" && (
+              <p className="text-sm font-medium" style={{ color: "var(--danger)" }}>
+                L&apos;envoi du courriel a échoué. Vérifie ton adresse et réessaie.
+              </p>
+            )}
+            <button className="btn w-full">Recevoir mon lien</button>
           </div>
         </form>
       )}
