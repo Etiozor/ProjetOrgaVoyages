@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCars, getParticipants, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { declareCar, joinCar, leaveCar } from "@/lib/actions";
+import { adminAddCar, declareCar, joinCar, leaveCar } from "@/lib/actions";
+import { CapacityStepper } from "@/components/CapacityStepper";
+import { CarManage } from "@/components/CarManage";
 
 export default async function CarpoolPage({
   params,
@@ -65,6 +67,7 @@ export default async function CarpoolPage({
         const free = car.seats - occupants.length;
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = car.ownerId === me.id;
+        const canManage = iOwnIt || identity.role === "admin";
         return (
           <div key={car.id} className="card flex flex-col gap-2.5">
             <div className="flex items-baseline justify-between gap-2">
@@ -99,9 +102,39 @@ export default async function CarpoolPage({
                 </button>
               </form>
             )}
+            {canManage && (
+              <CarManage
+                tripId={tripId}
+                car={{
+                  id: car.id,
+                  label: car.label,
+                  departPlace: car.departPlace,
+                  departTime: car.departTime,
+                  seats: car.seats,
+                }}
+                declaredBy={owner?.name ?? null}
+              />
+            )}
           </div>
         );
       })}
+
+      {identity.role === "admin" && (
+        <form action={adminAddCar} className="card-dashed flex flex-col gap-2.5">
+          <input type="hidden" name="tripId" value={tripId} />
+          <p className="eyebrow">Admin · ajouter une voiture</p>
+          <p className="muted text-xs leading-relaxed">
+            Pour quelqu&apos;un qui n&apos;est pas encore sur l&apos;app.
+          </p>
+          <input name="label" className="input" placeholder="Nom (ex. Voiture de Max)" required />
+          <div className="flex gap-2">
+            <input name="departPlace" className="input" placeholder="Lieu de départ" />
+            <CapacityStepper name="seats" defaultValue={5} min={1} max={9} />
+          </div>
+          <input name="departTime" className="input" placeholder="Heure (ex. sam. 8h00)" />
+          <button className="btn self-end">Ajouter</button>
+        </form>
+      )}
     </div>
   );
 }
