@@ -10,6 +10,8 @@ import {
 } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { AnnouncementComposer } from "@/components/AnnouncementComposer";
+import { AnnouncementManage } from "@/components/AnnouncementManage";
+import { Manage, ManageToggle } from "@/components/Manage";
 import { RichText } from "@/components/RichText";
 import {
   deleteAnnouncement,
@@ -364,59 +366,47 @@ export default async function AnnouncementsPage({
             : "var(--warn-bg)";
 
         return (
+          <Manage key={a.id}>
           <div
-            key={a.id}
             className="card flex flex-col gap-3"
             style={{
               borderLeft: `3px solid ${myReaction ? "var(--hair)" : "var(--warn-bg)"}`,
             }}
           >
-            <div className="flex items-baseline justify-between gap-2">
-              <span
-                className="text-[0.7rem] font-semibold uppercase tracking-[0.12em]"
-                style={{ color: "var(--accent)" }}
-              >
-                {a.authorLabel}
-              </span>
-              <span className="muted text-[0.7rem]">
-                {new Date(a.createdAt).toLocaleString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span
+                  className="text-[0.7rem] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {a.authorLabel}
+                </span>
+                <span className="muted text-[0.7rem]">
+                  {new Date(a.createdAt).toLocaleString("fr-FR", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              {identity.role === "admin" && (
+                <ManageToggle label="Modifier l'annonce" variant="square" />
+              )}
             </div>
-            <RichText content={a.content} font={a.font} />
 
             {identity.role === "admin" && (
-              <details className="text-xs">
-                <summary className="muted cursor-pointer select-none">
-                  Modifier / supprimer
-                </summary>
-                <div className="flex flex-col gap-2 mt-2">
-                  <AnnouncementComposer
-                    tripId={tripId}
-                    action={updateAnnouncement}
-                    announcementId={a.id}
-                    defaultContent={a.content}
-                    defaultFont={a.font}
-                    submitLabel="Enregistrer"
-                    note="Sélectionne du texte puis Gras / Italique, puis Enregistrer."
-                  />
-                  <form action={deleteAnnouncement} className="self-end">
-                    <input type="hidden" name="tripId" value={tripId} />
-                    <input type="hidden" name="announcementId" value={a.id} />
-                    <button
-                      className="btn-ghost"
-                      style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
-                    >
-                      Supprimer l&apos;annonce
-                    </button>
-                  </form>
-                </div>
-              </details>
+              <AnnouncementManage
+                tripId={tripId}
+                announcementId={a.id}
+                defaultContent={a.content}
+                defaultFont={a.font}
+                updateAction={updateAnnouncement}
+                deleteAction={deleteAnnouncement}
+              />
             )}
+
+            <RichText content={a.content} font={a.font} />
 
             <div className="flex gap-1.5 flex-wrap">
               {EMOJIS.map((e) => (
@@ -514,6 +504,7 @@ export default async function AnnouncementsPage({
               )}
             </div>
           </div>
+          </Manage>
         );
       })}
     </div>
