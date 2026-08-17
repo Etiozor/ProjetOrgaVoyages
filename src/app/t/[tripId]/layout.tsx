@@ -26,6 +26,13 @@ export default async function TripLayout({
   const pending = await getPendingCount(tripId, identity.effective.id);
   const participants = identity.role === "admin" ? await getParticipants(tripId) : [];
 
+  const identityLine =
+    identity.role === "admin"
+      ? identity.isImpersonating
+        ? `${identity.user.firstName} — agit pour ${identity.effective.name}`
+        : `${identity.user.firstName} · admin`
+      : `Connecté · ${identity.effective.name}`;
+
   const nav = [
     { href: `/t/${tripId}`, label: "Annonces" },
     { href: `/t/${tripId}/participants`, label: "Groupe" },
@@ -63,27 +70,40 @@ export default async function TripLayout({
         >
           <div className="mx-auto max-w-xl flex items-center gap-3 px-4 py-2.5">
             <Link
-              href="/"
-              className="btn-ghost shrink-0 !min-h-0 !px-2 !py-1.5"
-              title="Mes voyages"
+              href={`/t/${tripId}`}
+              className="shrink-0 flex items-center justify-center rounded-[3px]"
+              style={{ width: 34, height: 34, border: "1px solid var(--border)", color: "var(--text)" }}
+              title="Accueil du voyage"
+              aria-label="Accueil du voyage"
             >
-              ←
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4 11.2L12 4.5l8 6.7" />
+                <path d="M6.2 12.6V19.5h11.6v-6.9" />
+                <path d="M10.2 19.5v-4.4h3.6v4.4" />
+              </svg>
             </Link>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 text-center">
               <div className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase leading-tight tracking-[0.04em] truncate">
                 {trip.name}
               </div>
               <div className="text-[0.7rem] tracking-[0.04em] muted truncate">
-                {identity.role === "admin"
-                  ? identity.isImpersonating
-                    ? `${identity.user.firstName} — agit pour ${identity.effective.name}`
-                    : `${identity.user.firstName} · admin`
-                  : `Connecté · ${identity.effective.name}`}
+                {identityLine}
               </div>
             </div>
             <TripMenu
               tripId={tripId}
               tripName={trip.name}
+              identityLine={identityLine}
               accessCode={trip.accessCode}
               isAdmin={identity.role === "admin"}
               isActuallyAdmin={identity.isActuallyAdmin}

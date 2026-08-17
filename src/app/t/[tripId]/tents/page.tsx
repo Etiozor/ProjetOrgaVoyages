@@ -5,6 +5,7 @@ import { adminAddTent, declareTent, joinTent, leaveTent } from "@/lib/actions";
 import { TentIcon } from "@/components/TentIcon";
 import { CapacityStepper } from "@/components/CapacityStepper";
 import { TentManage } from "@/components/TentManage";
+import { Manage, ManageToggle } from "@/components/Manage";
 
 function initials(name: string): string {
   return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
@@ -56,21 +57,25 @@ export default async function TentsPage({
         }`;
 
         return (
-          <div key={tent.id} className="card flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-2.5">
-              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+          <Manage key={tent.id}>
+          <div className="card flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2.5">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em] leading-[1.25] pt-[3px]">
                 {tent.label}
               </span>
-              <span
-                className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
-                style={
-                  isFull
-                    ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }
-                    : { background: "var(--accent-soft)", color: "var(--accent)" }
-                }
-              >
-                {isFull ? "Complète" : `${free} libre${free > 1 ? "s" : ""}`}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className="whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
+                  style={
+                    isFull
+                      ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }
+                      : { background: "var(--accent-soft)", color: "var(--accent)" }
+                  }
+                >
+                  {isFull ? "Complète" : `${free} libre${free > 1 ? "s" : ""}`}
+                </span>
+                {canManage && <ManageToggle label="Gérer cette tente" />}
+              </div>
             </div>
 
             {/* Grille de places : occupants + emplacements libres (cliquer pour rejoindre) */}
@@ -173,6 +178,7 @@ export default async function TentsPage({
               />
             )}
           </div>
+          </Manage>
         );
       })}
 

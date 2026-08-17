@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { deleteTent, updateTent } from "@/lib/actions";
 import { CapacityStepper } from "./CapacityStepper";
 import { SubmitButton } from "./SubmitButton";
+import { useManage } from "./Manage";
 
 /**
- * « Gérer » d'une tente (maquette TRIP'IN Mobile) — visible par le propriétaire
- * et l'admin. Le bouton « ⋯ » déplie un panneau de modification (nom, capacité)
- * suivi de la suppression. Les actions serveur revalident la propriété.
+ * Panneau « Gérer » d'une tente (maquette TRIP'IN Mobile). Rendu au bas de la
+ * carte, il se déplie quand le « ⋯ » de l'en-tête est actif (état partagé via
+ * <Manage>). Modification (nom, capacité) puis suppression ; les actions serveur
+ * revalident la propriété.
  */
 export function TentManage({
   tripId,
@@ -19,25 +20,8 @@ export function TentManage({
   tent: { id: number; label: string; capacity: number };
   declaredBy: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title="Gérer cette tente"
-        aria-label="Gérer cette tente"
-        className="self-end flex items-center gap-[3px] px-2 h-6 rounded-[3px]"
-        style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
-      >
-        <span className="text-[0.7rem] tracking-[0.04em] pr-1">Gérer</span>
-        <span className="w-[3px] h-[3px] rounded-full bg-current" />
-        <span className="w-[3px] h-[3px] rounded-full bg-current" />
-        <span className="w-[3px] h-[3px] rounded-full bg-current" />
-      </button>
-    );
-  }
+  const { open, setOpen } = useManage();
+  if (!open) return null;
 
   return (
     <div
