@@ -301,22 +301,28 @@ export async function toggleTravelerView(formData: FormData) {
   refresh();
 }
 
-export async function updateTripToggles(formData: FormData) {
+// Réglages « Pages & permissions » de la maquette : chaque interrupteur s'applique
+// immédiatement (un seul flag basculé par appel). La liste blanche évite qu'un
+// champ de formulaire forgé ne modifie une colonne arbitraire.
+const TRIP_FLAGS = [
+  "allowMemberCars",
+  "allowMemberTents",
+  "pageCarpool",
+  "pageMeals",
+  "pageTents",
+  "pageGear",
+  "requireReaction",
+] as const;
+
+export async function toggleTripFlag(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   if (!(await requireAdmin(tripId))) return;
-  const flag = (name: string) => Boolean(formData.get(name));
-  await prisma.trip.update({
-    where: { id: tripId },
-    data: {
-      allowMemberCars: flag("allowMemberCars"),
-      allowMemberTents: flag("allowMemberTents"),
-      pageCarpool: flag("pageCarpool"),
-      pageMeals: flag("pageMeals"),
-      pageTents: flag("pageTents"),
-      pageGear: flag("pageGear"),
-      requireReaction: flag("requireReaction"),
-    },
-  });
+  const flag = String(formData.get("flag") ?? "");
+  if (!(TRIP_FLAGS as readonly string[]).includes(flag)) return;
+  const trip = await getTripById(tripId);
+  if (!trip) return;
+  const current = Boolean((trip as unknown as Record<string, boolean>)[flag]);
+  await prisma.trip.update({ where: { id: tripId }, data: { [flag]: !current } });
   refresh();
 }
 

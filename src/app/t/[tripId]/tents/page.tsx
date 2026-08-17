@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { getParticipants, getTents, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { declareTent, joinTent, leaveTent } from "@/lib/actions";
+import { adminAddTent, declareTent, joinTent, leaveTent } from "@/lib/actions";
 import { TentIcon } from "@/components/TentIcon";
 import { CapacityStepper } from "@/components/CapacityStepper";
+import { TentManage } from "@/components/TentManage";
 
 function initials(name: string): string {
   return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
@@ -44,6 +45,7 @@ export default async function TentsPage({
         const free = tent.capacity - occupants.length;
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = tent.ownerId === me.id;
+        const canManage = iOwnIt || identity.role === "admin";
         const isFull = free <= 0;
         const size =
           tent.capacity <= 2 ? "petite" : tent.capacity <= 4 ? "familiale" : "grande";
@@ -162,6 +164,14 @@ export default async function TentsPage({
                 </button>
               </form>
             )}
+
+            {canManage && (
+              <TentManage
+                tripId={tripId}
+                tent={{ id: tent.id, label: tent.label, capacity: tent.capacity }}
+                declaredBy={owner?.name ?? null}
+              />
+            )}
           </div>
         );
       })}
@@ -182,6 +192,21 @@ export default async function TentsPage({
         <p className="muted text-xs leading-relaxed">
           L&apos;admin a désactivé l&apos;ajout de tentes par les participants.
         </p>
+      )}
+
+      {identity.role === "admin" && (
+        <form action={adminAddTent} className="card-dashed flex flex-col gap-2.5">
+          <input type="hidden" name="tripId" value={tripId} />
+          <p className="eyebrow">Admin · ajouter une tente</p>
+          <p className="muted text-xs leading-relaxed">
+            Pour quelqu&apos;un qui n&apos;est pas encore sur l&apos;app.
+          </p>
+          <div className="flex gap-2">
+            <input name="label" className="input" placeholder="Nom (ex. Quechua 4p)" required />
+            <CapacityStepper name="capacity" defaultValue={4} min={1} max={12} />
+          </div>
+          <button className="btn self-end">Ajouter</button>
+        </form>
       )}
     </div>
   );
