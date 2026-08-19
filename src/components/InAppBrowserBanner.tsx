@@ -81,7 +81,7 @@ export function InAppBrowserBanner() {
   const actionStyle = {
     background: TEAL,
     color: CREAM,
-    borderRadius: "3px",
+    borderRadius: "8px",
   } as const;
 
   return (

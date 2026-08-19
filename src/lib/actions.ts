@@ -377,18 +377,6 @@ export async function declareCar(formData: FormData) {
   refresh();
 }
 
-export async function adminAddCar(formData: FormData) {
-  const tripId = Number(formData.get("tripId"));
-  if (!(await requireAdmin(tripId))) return;
-  const label = String(formData.get("label") ?? "").trim();
-  const departPlace = String(formData.get("departPlace") ?? "").trim();
-  const departTime = String(formData.get("departTime") ?? "").trim();
-  const seats = Number(formData.get("seats"));
-  if (!label || !(seats >= 1)) return;
-  await prisma.car.create({ data: { tripId, label, departPlace, departTime, seats } });
-  refresh();
-}
-
 export async function updateCar(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   const identity = await tripIdentity(tripId);
@@ -440,16 +428,6 @@ export async function declareTent(formData: FormData) {
     where: { id: identity.effective.id },
     data: { tentId: tent.id },
   });
-  refresh();
-}
-
-export async function adminAddTent(formData: FormData) {
-  const tripId = Number(formData.get("tripId"));
-  if (!(await requireAdmin(tripId))) return;
-  const label = String(formData.get("label") ?? "").trim();
-  const capacity = Number(formData.get("capacity"));
-  if (!label || !(capacity >= 1)) return;
-  await prisma.tent.create({ data: { tripId, label, capacity } });
   refresh();
 }
 

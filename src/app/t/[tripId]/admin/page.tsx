@@ -100,7 +100,7 @@ export default async function AdminPage({
                 type="submit"
                 role="switch"
                 aria-checked={on}
-                className="w-full text-left flex items-center justify-between gap-3 px-3.5 rounded-[3px]"
+                className="w-full text-left flex items-center justify-between gap-3 px-3.5 rounded-[8px]"
                 style={{
                   minHeight: 52,
                   background: "var(--card)",
@@ -117,7 +117,7 @@ export default async function AdminPage({
                   style={{
                     width: 42,
                     height: 22,
-                    borderRadius: 3,
+                    borderRadius: 8,
                     background: on ? "var(--accent)" : "var(--card-raised)",
                     border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
                     justifyContent: on ? "flex-end" : "flex-start",
@@ -153,7 +153,7 @@ export default async function AdminPage({
                   className="w-full px-3 text-sm font-semibold flex items-center justify-between gap-2"
                   style={{
                     minHeight: 48,
-                    borderRadius: 3,
+                    borderRadius: 8,
                     border: `1px solid ${active ? t.accent : "rgba(0,0,0,.12)"}`,
                     background: "var(--card-raised)",
                   }}
@@ -161,7 +161,7 @@ export default async function AdminPage({
                   <span className="flex items-center gap-2">
                     <span
                       className="inline-block shrink-0"
-                      style={{ height: 16, width: 16, borderRadius: 3, background: t.accent }}
+                      style={{ height: 16, width: 16, borderRadius: 8, background: t.accent }}
                     />
                     {t.label}
                   </span>

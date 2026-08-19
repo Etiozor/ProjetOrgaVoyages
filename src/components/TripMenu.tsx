@@ -34,7 +34,7 @@ function RowInner({
     <>
       <span
         aria-hidden
-        className="flex-none self-stretch rounded-[3px]"
+        className="flex-none self-stretch rounded-[8px]"
         style={{ width: 3, background: rail }}
       />
       <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
@@ -89,7 +89,7 @@ export function TripMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         title="Menu du voyage"
-        className="shrink-0 flex flex-col items-center justify-center gap-[3.5px] rounded-[3px]"
+        className="shrink-0 flex flex-col items-center justify-center gap-[3.5px] rounded-[8px]"
         style={{ width: 34, height: 34, border: "1px solid var(--border)", color: "var(--text)" }}
       >
         <span style={{ width: 15, height: 1.6, borderRadius: 2, background: "currentColor" }} />
@@ -115,7 +115,7 @@ export function TripMenu({
               style={{
                 background: "var(--card-raised)",
                 borderTop: "1px solid var(--border)",
-                borderRadius: "3px 3px 0 0",
+                borderRadius: "8px 8px 0 0",
                 animation: "sheetin .16s ease-out",
               }}
             >
@@ -126,7 +126,7 @@ export function TripMenu({
               >
                 <span
                   aria-hidden
-                  className="rounded-[3px]"
+                  className="rounded-[8px]"
                   style={{ width: 34, height: 3, background: "rgba(128,128,128,.28)" }}
                 />
                 <div className="w-full flex items-start justify-between gap-3">
@@ -142,7 +142,7 @@ export function TripMenu({
                     type="button"
                     onClick={close}
                     aria-label="Fermer le menu"
-                    className="shrink-0 flex items-center justify-center rounded-[3px] text-[0.95rem] leading-none"
+                    className="shrink-0 flex items-center justify-center rounded-[8px] text-[0.95rem] leading-none"
                     style={{ width: 30, height: 30, border: "1px solid var(--border)", color: "var(--muted)" }}
                   >
                     ×
@@ -233,7 +233,7 @@ export function TripMenu({
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="w-full min-h-[44px] rounded-[3px] text-[0.8rem] tracking-[0.05em]"
+                    className="w-full min-h-[44px] rounded-[8px] text-[0.8rem] tracking-[0.05em]"
                     style={{ border: "1px solid var(--danger)", color: "var(--danger)" }}
                   >
                     Se déconnecter

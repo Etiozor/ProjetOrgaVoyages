@@ -85,7 +85,7 @@ export function PhotoUpload({
         style={{
           width: 56,
           height: 56,
-          borderRadius: 3,
+          borderRadius: 8,
           background: preview ? "transparent" : "var(--accent)",
           color: "var(--bg)",
         }}

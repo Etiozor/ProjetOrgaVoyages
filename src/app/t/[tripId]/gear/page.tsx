@@ -158,7 +158,7 @@ export default async function GearPage({
                       style={{
                         width: 18,
                         height: 18,
-                        borderRadius: 3,
+                        borderRadius: 8,
                         background: done ? "var(--accent)" : "transparent",
                         border: `1px solid ${done ? "var(--accent)" : "rgba(0,0,0,.22)"}`,
                         color: "var(--bg)",
@@ -168,7 +168,7 @@ export default async function GearPage({
                     </span>
                     <span className="flex-1 font-semibold text-[0.95rem]">{item.name}</span>
                     <span
-                      className="shrink-0 whitespace-nowrap rounded-[3px] px-[7px] py-[3px] text-[0.7rem] tracking-[0.06em] font-medium"
+                      className="shrink-0 whitespace-nowrap rounded-[8px] px-[7px] py-[3px] text-[0.7rem] tracking-[0.06em] font-medium"
                       style={
                         done
                           ? { background: "var(--accent-soft)", color: "var(--accent)" }
@@ -178,13 +178,13 @@ export default async function GearPage({
                       {taken}/{item.qtyRequired}
                     </span>
                   </div>
-                  <div style={{ height: 3, background: "var(--hair)", borderRadius: 3 }}>
+                  <div style={{ height: 3, background: "var(--hair)", borderRadius: 8 }}>
                     <div
                       style={{
                         height: 3,
                         width: `${Math.min(100, Math.round((taken / item.qtyRequired) * 100))}%`,
                         background: done ? "var(--accent)" : "var(--warn-bg)",
-                        borderRadius: 3,
+                        borderRadius: 8,
                       }}
                     />
                   </div>
@@ -193,7 +193,7 @@ export default async function GearPage({
                     <div className="flex flex-1 min-w-0 flex-wrap gap-[5px]">
                       {itemClaims.length === 0 ? (
                         <span
-                          className="rounded-[3px] px-[7px] py-[3px] text-[0.7rem]"
+                          className="rounded-[8px] px-[7px] py-[3px] text-[0.7rem]"
                           style={{
                             color: "var(--muted)",
                             border: "1px solid var(--hair)",
@@ -207,7 +207,7 @@ export default async function GearPage({
                           return (
                             <span
                               key={c.participantId}
-                              className="whitespace-nowrap rounded-[3px] px-[7px] py-[3px] text-[0.7rem]"
+                              className="whitespace-nowrap rounded-[8px] px-[7px] py-[3px] text-[0.7rem]"
                               style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                             >
                               {p?.name ?? "?"}
@@ -222,7 +222,7 @@ export default async function GearPage({
                       className="flex shrink-0 items-center"
                       style={{
                         border: "1px solid var(--border)",
-                        borderRadius: 3,
+                        borderRadius: 8,
                         background: "var(--card-raised)",
                       }}
                     >

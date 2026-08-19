@@ -87,7 +87,7 @@ export function MealPlanningGrid({ tripId, days, meals, cells, pageSize = 3 }: P
                   key={c.dayIndex}
                   href={`/t/${tripId}/meals?day=${c.dayIndex}#slot-${mi}`}
                   title={c.title}
-                  className="min-h-10 rounded-[3px] flex items-center justify-center text-[0.7rem] font-semibold tracking-[0.04em]"
+                  className="min-h-10 rounded-[8px] flex items-center justify-center text-[0.7rem] font-semibold tracking-[0.04em]"
                   style={cellStyle(c.kind)}
                 >
                   {c.label}

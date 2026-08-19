@@ -37,7 +37,7 @@ export function AnnouncementManage({
   if (!open) return null;
 
   const rowBase =
-    "text-left min-h-[46px] px-3 rounded-[3px] flex items-center justify-between gap-2.5 text-[0.8rem]";
+    "text-left min-h-[46px] px-3 rounded-[8px] flex items-center justify-between gap-2.5 text-[0.8rem]";
 
   return (
     <div

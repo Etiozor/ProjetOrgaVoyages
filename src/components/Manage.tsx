@@ -43,7 +43,7 @@ export function ManageToggle({
       title={label}
       aria-label={label}
       aria-expanded={open}
-      className={`shrink-0 flex items-center justify-center gap-[2.5px] rounded-[3px] transition-colors ${
+      className={`shrink-0 flex items-center justify-center gap-[2.5px] rounded-[8px] transition-colors ${
         variant === "square" ? "w-[30px] h-[30px]" : "h-[23px] px-[7px]"
       }`}
       style={{

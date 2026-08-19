@@ -22,7 +22,7 @@ export function CapacityStepper({
 
   return (
     <div
-      className="flex-none flex items-center rounded-[3px]"
+      className="flex-none flex items-center rounded-[8px]"
       style={{ border: "1px solid rgba(0,0,0,.14)", background: "var(--card-raised)" }}
     >
       <button
