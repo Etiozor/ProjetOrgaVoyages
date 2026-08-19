@@ -3,6 +3,7 @@ import { Barlow, Oswald, Cormorant_Garamond } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { InAppBrowserBanner } from "@/components/InAppBrowserBanner";
+import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 
 const barlow = Barlow({
   weight: ["400", "500", "600", "700"],
@@ -44,6 +45,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full">
         <InAppBrowserBanner />
+        <VerifyEmailBanner />
         {children}
       </body>
     </html>

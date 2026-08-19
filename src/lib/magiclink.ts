@@ -30,16 +30,22 @@ async function baseUrl(): Promise<string> {
  */
 export async function issueMagicLink(
   user: { id: number; email: string; firstName: string },
-  next: string
+  next: string,
+  opts: { force?: boolean } = {}
 ): Promise<void> {
-  const recent = await prisma.loginToken.findFirst({
-    where: {
-      userId: user.id,
-      usedAt: null,
-      createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) },
-    },
-  });
-  if (recent) return;
+  // Le cooldown protège du spam de renvois. On le contourne (`force`) après une
+  // correction d'adresse : le lien récent pointait vers l'ancien courriel, il
+  // faut impérativement en émettre un vers la nouvelle adresse.
+  if (!opts.force) {
+    const recent = await prisma.loginToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) },
+      },
+    });
+    if (recent) return;
+  }
 
   const raw = randomBytes(32).toString("base64url");
   await prisma.loginToken.create({
