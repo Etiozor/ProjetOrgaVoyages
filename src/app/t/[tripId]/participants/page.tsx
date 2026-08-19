@@ -8,6 +8,7 @@ import {
 import { requireTripIdentity } from "@/lib/session";
 import {
   addParticipant,
+  adminFixUserEmail,
   confirmParticipant,
   demoteAdmin,
   promoteToAdmin,
@@ -27,10 +28,13 @@ function shortCar(label: string): string {
 
 export default async function ParticipantsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tripId: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const tripId = Number((await params).tripId);
+  const fix = (await searchParams).fix;
   const identity = await requireTripIdentity(tripId);
   const trip = (await getTripById(tripId))!;
   const participants = await getParticipants(tripId);
@@ -49,6 +53,22 @@ export default async function ParticipantsPage({
           {confirmed} confirmés · {participants.length}/{trip.capacity} attendus
         </span>
       </div>
+
+      {identity.role === "admin" && fix === "ok" && (
+        <p
+          className="card !py-2.5 text-sm font-medium"
+          style={{ background: "rgba(140,179,105,.15)", color: "#5a7a3a" }}
+        >
+          Adresse corrigée — un nouveau lien de connexion a été envoyé.
+        </p>
+      )}
+      {identity.role === "admin" && (fix === "email" || fix === "send") && (
+        <p className="card !py-2.5 text-sm font-medium" style={{ color: "var(--danger)" }}>
+          {fix === "email"
+            ? "Cette adresse ne semble pas valide, réessaie."
+            : "L'envoi du lien a échoué. Réessaie dans un instant."}
+        </p>
+      )}
 
       {identity.role === "admin" && (
         <div className="card-dashed flex flex-col gap-3">
@@ -243,6 +263,31 @@ export default async function ParticipantsPage({
                     </form>
                   )}
                 </div>
+
+                {/* Filet anti-verrouillage : corriger l'adresse d'un membre relié à
+                    un compte et lui renvoyer un lien de connexion. */}
+                {isAdminViewer && p.userId && (
+                  <details className="mt-0.5">
+                    <summary className="muted cursor-pointer text-[0.68rem] uppercase tracking-[0.08em]">
+                      Corriger l&apos;e-mail
+                    </summary>
+                    <form action={adminFixUserEmail} className="mt-2 flex gap-2">
+                      <input type="hidden" name="tripId" value={tripId} />
+                      <input type="hidden" name="pid" value={p.id} />
+                      <input
+                        name="email"
+                        type="email"
+                        className="input !min-h-0 !py-1 text-xs"
+                        placeholder="adresse corrigée"
+                        defaultValue={p.email ?? ""}
+                        required
+                      />
+                      <button className="btn !min-h-0 !py-1 !px-2.5 text-xs shrink-0">
+                        Envoyer un lien
+                      </button>
+                    </form>
+                  </details>
+                )}
               </div>
             </div>
           );

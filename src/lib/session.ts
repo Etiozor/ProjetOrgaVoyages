@@ -84,6 +84,30 @@ export async function clearSession() {
   store.delete("session");
 }
 
+// ---------- Vérification par magic link (migration douce) ----------
+
+/**
+ * Date limite de la migration vers le magic link. Avant : les anciens comptes
+ * non vérifiés gardent leur accès (bandeau de rappel). À partir de cette date,
+ * un compte non vérifié est renvoyé vers /verify pour confirmer son adresse.
+ */
+export const MIGRATION_DEADLINE = new Date("2026-10-01T00:00:00Z");
+
+export function isVerificationEnforced(): boolean {
+  return Date.now() >= MIGRATION_DEADLINE.getTime();
+}
+
+/**
+ * Porte d'accès : après la date limite, un utilisateur dont l'adresse n'est pas
+ * vérifiée est redirigé vers /verify. Ne jamais appeler depuis /verify, /login
+ * ni le bandeau (ils utilisent currentUser directement) — sinon boucle.
+ */
+function enforceVerified(user: User): void {
+  if (isVerificationEnforced() && !user.emailVerifiedAt) {
+    redirect("/verify");
+  }
+}
+
 // ---------- Identité ----------
 
 export async function currentUser(): Promise<User | null> {
@@ -95,6 +119,7 @@ export async function currentUser(): Promise<User | null> {
 export async function requireUser(): Promise<User> {
   const user = await currentUser();
   if (!user) redirect("/login");
+  enforceVerified(user);
   return user;
 }
 
@@ -135,6 +160,7 @@ export async function tripIdentity(tripId: number): Promise<TripIdentity | null>
 export async function requireTripIdentity(tripId: number): Promise<TripIdentity> {
   const user = await currentUser();
   if (!user) redirect("/login");
+  enforceVerified(user);
   const identity = await tripIdentity(tripId);
   if (!identity) redirect("/");
   return identity;

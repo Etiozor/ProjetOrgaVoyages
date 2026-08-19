@@ -23,8 +23,10 @@ import { isThemeId } from "./themes";
 import { isAnnounceFont } from "./announceFonts";
 import { sendAnnouncementEmail } from "./mail";
 import { issueMagicLink } from "./magiclink";
+import { maskEmail } from "./mask";
 import {
   clearSession,
+  currentUser,
   readSession,
   requireUser,
   tripIdentity,
@@ -43,11 +45,9 @@ function safeNext(raw: string): string {
   return raw.startsWith("/") && !raw.startsWith("//") ? raw : "";
 }
 
-// Masque une adresse pour l'écran de confirmation : t***@gmail.com
-function maskEmail(e: string): string {
-  const [u, d] = e.split("@");
-  if (!d) return "ton adresse";
-  return `${u.slice(0, 1)}${"*".repeat(Math.max(1, u.length - 1))}@${d}`;
+// Validation légère d'une adresse (même règle qu'à l'inscription).
+function isValidEmail(e: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(e);
 }
 
 export async function loginWithPhone(formData: FormData) {
@@ -122,6 +122,83 @@ export async function registerUser(formData: FormData) {
 export async function logout() {
   await clearSession();
   redirect("/login");
+}
+
+// ---------- Vérification d'adresse (migration magic link, étape 2) ----------
+
+/**
+ * Renvoie un lien de vérification à l'utilisateur connecté, sur l'adresse déjà
+ * en base. Utilisé par le bandeau et la page /verify. Silencieux si un lien a
+ * été demandé il y a moins d'une minute (anti-spam géré dans issueMagicLink).
+ */
+export async function resendMyVerification() {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  if (user.emailVerifiedAt) redirect("/");
+  try {
+    await issueMagicLink(
+      { id: user.id, email: user.email, firstName: user.firstName },
+      "/"
+    );
+  } catch (err) {
+    console.error("[MAGIC LINK] Échec du renvoi (self) :", err);
+    redirect("/verify?error=send");
+  }
+  redirect(`/verify?sent=${encodeURIComponent(maskEmail(user.email))}`);
+}
+
+/**
+ * Correction self-service : l'utilisateur connecté (mais non encore vérifié)
+ * corrige lui-même son adresse et reçoit aussitôt un lien à la nouvelle adresse.
+ * Filet anti-verrouillage principal tant que la session reste valide.
+ */
+export async function updateMyEmail(formData: FormData) {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  if (user.emailVerifiedAt) redirect("/");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!isValidEmail(email)) redirect("/verify?error=email");
+  await prisma.user.update({ where: { id: user.id }, data: { email } });
+  try {
+    // force : l'ancien lien pointait vers l'ancienne adresse, on en émet un neuf.
+    await issueMagicLink({ id: user.id, email, firstName: user.firstName }, "/", {
+      force: true,
+    });
+  } catch (err) {
+    console.error("[MAGIC LINK] Échec après correction self :", err);
+    redirect("/verify?error=send");
+  }
+  redirect(`/verify?sent=${encodeURIComponent(maskEmail(email))}`);
+}
+
+/**
+ * Filet anti-verrouillage côté admin : un admin de voyage corrige l'adresse d'un
+ * membre relié à un compte et lui renvoie un lien. Réservé aux membres du voyage
+ * possédant déjà un compte (userId non nul).
+ */
+export async function adminFixUserEmail(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const pid = Number(formData.get("pid"));
+  const email = String(formData.get("email") ?? "").trim();
+  const p = await getParticipant(pid);
+  if (!p || p.tripId !== tripId || !p.userId) return;
+  if (!isValidEmail(email)) redirect(`/t/${tripId}/participants?fix=email`);
+  const target = await prisma.user.findUnique({ where: { id: p.userId } });
+  if (!target) return;
+  await prisma.user.update({ where: { id: target.id }, data: { email } });
+  // On aligne aussi la copie d'e-mail du participant (fallback des annonces).
+  await prisma.participant.update({ where: { id: p.id }, data: { email } });
+  try {
+    await issueMagicLink({ id: target.id, email, firstName: target.firstName }, "/", {
+      force: true,
+    });
+  } catch (err) {
+    console.error("[MAGIC LINK] Échec après correction admin :", err);
+    redirect(`/t/${tripId}/participants?fix=send`);
+  }
+  refresh();
+  redirect(`/t/${tripId}/participants?fix=ok`);
 }
 
 // ---------- Voyages (TRIP-01..04) ----------
