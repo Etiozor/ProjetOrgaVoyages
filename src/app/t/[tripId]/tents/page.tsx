@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getParticipants, getTents, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { adminAddTent, declareTent, joinTent, leaveTent } from "@/lib/actions";
+import { declareTent, joinTent, leaveTent } from "@/lib/actions";
 import { TentIcon } from "@/components/TentIcon";
 import { CapacityStepper } from "@/components/CapacityStepper";
 import { TentManage } from "@/components/TentManage";
+import { CapacityBadge } from "@/components/CapacityBadge";
 import { Manage, ManageToggle } from "@/components/Manage";
 
 function initials(name: string): string {
@@ -47,7 +48,6 @@ export default async function TentsPage({
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = tent.ownerId === me.id;
         const canManage = iOwnIt || identity.role === "admin";
-        const isFull = free <= 0;
         const size =
           tent.capacity <= 2 ? "petite" : tent.capacity <= 4 ? "familiale" : "grande";
         const descriptor =
@@ -58,22 +58,16 @@ export default async function TentsPage({
 
         return (
           <Manage key={tent.id}>
-          <div className="card flex flex-col gap-3">
+          <div
+            className="card flex flex-col gap-3"
+            style={{ borderLeft: `6px solid ${iAmIn ? "var(--accent)" : "var(--hair)"}` }}
+          >
             <div className="flex items-start justify-between gap-2.5">
               <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em] leading-[1.25] pt-[3px]">
                 {tent.label}
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className="whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
-                  style={
-                    isFull
-                      ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }
-                      : { background: "var(--accent-soft)", color: "var(--accent)" }
-                  }
-                >
-                  {isFull ? "Complète" : `${free} libre${free > 1 ? "s" : ""}`}
-                </span>
+                <CapacityBadge free={free} fullLabel="Complète" />
                 {canManage && <ManageToggle label="Gérer cette tente" />}
               </div>
             </div>
@@ -90,7 +84,7 @@ export default async function TentsPage({
                     style={{
                       width: 46,
                       height: 52,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       background: isMe ? "var(--accent)" : "var(--accent-soft)",
                       border: `1px solid ${
                         isMe ? "var(--accent)" : "color-mix(in srgb, var(--accent), transparent 50%)"
@@ -116,7 +110,7 @@ export default async function TentsPage({
                       style={{
                         width: 46,
                         height: 52,
-                        borderRadius: 3,
+                        borderRadius: 8,
                         border: "1px dashed rgba(0,0,0,.2)",
                         color: "var(--muted)",
                         background: "transparent",
@@ -133,7 +127,7 @@ export default async function TentsPage({
                     style={{
                       width: 46,
                       height: 52,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       border: "1px dashed rgba(0,0,0,.2)",
                       color: "var(--muted)",
                     }}
@@ -200,20 +194,6 @@ export default async function TentsPage({
         </p>
       )}
 
-      {identity.role === "admin" && (
-        <form action={adminAddTent} className="card-dashed flex flex-col gap-2.5">
-          <input type="hidden" name="tripId" value={tripId} />
-          <p className="eyebrow">Admin · ajouter une tente</p>
-          <p className="muted text-xs leading-relaxed">
-            Pour quelqu&apos;un qui n&apos;est pas encore sur l&apos;app.
-          </p>
-          <div className="flex gap-2">
-            <input name="label" className="input" placeholder="Nom (ex. Quechua 4p)" required />
-            <CapacityStepper name="capacity" defaultValue={4} min={1} max={12} />
-          </div>
-          <button className="btn self-end">Ajouter</button>
-        </form>
-      )}
     </div>
   );
 }

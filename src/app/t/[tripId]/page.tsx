@@ -247,7 +247,7 @@ export default async function AnnouncementsPage({
             <span
               className="shrink-0 text-[0.7rem] font-bold tabular-nums px-2 py-1"
               style={{
-                borderRadius: 3,
+                borderRadius: 8,
                 color: "var(--accent)",
                 background: "var(--accent-soft)",
               }}
@@ -370,7 +370,7 @@ export default async function AnnouncementsPage({
           <div
             className="card flex flex-col gap-3"
             style={{
-              borderLeft: `3px solid ${myReaction ? "var(--hair)" : "var(--warn-bg)"}`,
+              borderLeft: `6px solid ${myReaction ? "var(--hair)" : "var(--warn-bg)"}`,
             }}
           >
             <div className="flex items-start justify-between gap-2.5">
@@ -419,7 +419,7 @@ export default async function AnnouncementsPage({
                     style={{
                       width: 44,
                       height: 38,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       border: `1px solid ${
                         myReaction?.emoji === e ? "var(--accent)" : "rgba(0,0,0,.14)"
                       }`,
@@ -452,13 +452,13 @@ export default async function AnnouncementsPage({
                   {seen} / {total}
                 </span>
               </div>
-              <div style={{ height: 3, background: "var(--hair)", borderRadius: 3 }}>
+              <div style={{ height: 3, background: "var(--hair)", borderRadius: 8 }}>
                 <div
                   style={{
                     height: 3,
                     width: `${pct}%`,
                     background: seenColor,
-                    borderRadius: 3,
+                    borderRadius: 8,
                   }}
                 />
               </div>
@@ -475,7 +475,7 @@ export default async function AnnouncementsPage({
                       style={{
                         width: 30,
                         height: 30,
-                        borderRadius: 3,
+                        borderRadius: 8,
                         background: em ? "var(--accent-soft)" : "transparent",
                         border: `1px ${em ? "solid" : "dashed"} ${
                           em ? "var(--accent)" : "rgba(0,0,0,.22)"
@@ -492,7 +492,7 @@ export default async function AnnouncementsPage({
                 <span
                   className="self-start text-[0.65rem] font-semibold uppercase tracking-[0.08em] px-3 py-1.5"
                   style={{
-                    borderRadius: 3,
+                    borderRadius: 8,
                     border: "1px solid var(--warn-bg)",
                     color: "#a05a20",
                     background: "rgba(244,162,89,.15)",

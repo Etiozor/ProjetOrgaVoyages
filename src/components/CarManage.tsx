@@ -87,7 +87,7 @@ export function CarManage({
         <input type="hidden" name="tripId" value={tripId} />
         <input type="hidden" name="carId" value={car.id} />
         <button
-          className="w-full text-left min-h-[46px] px-3 rounded-[3px] flex items-center justify-between gap-2.5 text-[0.8rem]"
+          className="w-full text-left min-h-[46px] px-3 rounded-[8px] flex items-center justify-between gap-2.5 text-[0.8rem]"
           style={{
             background: "var(--card-raised)",
             border: "1px solid rgba(188,75,81,.45)",

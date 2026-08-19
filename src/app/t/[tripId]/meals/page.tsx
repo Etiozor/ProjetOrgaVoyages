@@ -20,6 +20,11 @@ import {
   updateMealMenu,
 } from "@/lib/actions";
 
+// Initiales courtes d'un prénom (2 lettres) — même logique que la page Participants.
+function initials(name: string): string {
+  return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
+}
+
 export default async function MealsPage({
   params,
   searchParams,
@@ -121,7 +126,7 @@ export default async function MealsPage({
       {/* Vue d'ensemble : grille services × jours */}
       <div className="card flex flex-col gap-2.5">
         <div className="flex items-baseline justify-between gap-2.5">
-          <span className="eyebrow">Planning du week-end</span>
+          <span className="eyebrow">Planning du séjour</span>
           <span
             className="text-[0.7rem] whitespace-nowrap"
             style={{ color: coverAll ? "var(--accent)" : "var(--warn-bg)" }}
@@ -174,7 +179,7 @@ export default async function MealsPage({
             <Link
               key={d.index}
               href={mealsHref(d.index)}
-              className="min-h-12 rounded-[3px] flex flex-col items-center justify-center gap-0.5"
+              className="min-h-12 rounded-[8px] flex flex-col items-center justify-center gap-0.5"
               style={{
                 background: active ? "var(--card)" : "transparent",
                 border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
@@ -226,7 +231,7 @@ export default async function MealsPage({
             key={mi}
             id={`slot-${mi}`}
             className="card meal-slot scroll-mt-24 flex flex-col gap-3"
-            style={{ borderLeft: `3px solid ${edge}` }}
+            style={{ borderLeft: `6px solid ${edge}` }}
           >
             <div className="flex items-start justify-between gap-2.5">
               <div className="min-w-0">
@@ -238,16 +243,37 @@ export default async function MealsPage({
                 </div>
               </div>
               <span
-                className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
-                style={
-                  disabled
-                    ? { background: "var(--hair)", color: "var(--muted)" }
+                className="shrink-0 whitespace-nowrap uppercase"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.09em",
+                  padding: "4px 8px",
+                  borderRadius: 8,
+                  ...(disabled
+                    ? {
+                        background: "transparent",
+                        color: "var(--muted)",
+                        border: "1px solid var(--border)",
+                      }
                     : team
                       ? mine
-                        ? { background: "var(--accent)", color: "var(--bg)" }
-                        : { background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { background: "rgba(244,162,89,.18)", color: "#a05a20" }
-                }
+                        ? {
+                            background: "var(--accent)",
+                            color: "var(--bg)",
+                            border: "1px solid var(--accent)",
+                          }
+                        : {
+                            background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+                            color: "var(--accent-text)",
+                            border: "1px solid color-mix(in srgb, var(--accent) 45%, transparent)",
+                          }
+                      : {
+                          background: "color-mix(in srgb, var(--warn-bg) 18%, transparent)",
+                          color: "#8a4a18",
+                          border: "1px solid color-mix(in srgb, var(--warn-bg) 45%, transparent)",
+                        }),
+                }}
               >
                 {disabled ? "N/A" : team ? (mine ? "Mon équipe" : "Réservé") : "Libre"}
               </span>
@@ -280,7 +306,7 @@ export default async function MealsPage({
             {team && (
               <div className="flex items-center gap-2.5">
                 <span
-                  className="w-8 h-8 shrink-0 rounded-[3px] flex items-center justify-center text-[0.7rem] font-bold"
+                  className="w-8 h-8 shrink-0 rounded-[8px] flex items-center justify-center text-[0.7rem] font-bold"
                   style={
                     mine
                       ? { background: "var(--accent)", color: "var(--bg)" }
@@ -353,7 +379,7 @@ export default async function MealsPage({
                         >
                           <span
                             aria-hidden
-                            className="w-[18px] h-[18px] shrink-0 rounded-[3px] flex items-center justify-center text-[0.7rem]"
+                            className="w-[18px] h-[18px] shrink-0 rounded-[8px] flex items-center justify-center text-[0.7rem]"
                             style={{
                               background: it.done ? "var(--accent)" : "transparent",
                               border: `1px solid ${it.done ? "var(--accent)" : "rgba(0,0,0,.22)"}`,
@@ -507,7 +533,33 @@ export default async function MealsPage({
       {myTeam && (
         <div className="card-dashed flex flex-col gap-1.5">
           <span className="eyebrow">Mon équipe</span>
-          <span className="text-[0.8rem] font-semibold">{myTeam.label}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1">
+              {myTeam.members.map((m) => {
+                const isMe = m.id === me.id;
+                return (
+                  <span
+                    key={m.id}
+                    aria-hidden
+                    title={m.name}
+                    className="w-6 h-6 shrink-0 rounded-[8px] flex items-center justify-center text-[0.6rem] font-bold"
+                    style={
+                      isMe
+                        ? { background: "var(--accent)", color: "var(--bg)" }
+                        : { background: "rgba(0,0,0,.06)", color: "var(--muted)" }
+                    }
+                  >
+                    {initials(m.name)}
+                  </span>
+                );
+              })}
+            </div>
+            <span className="text-[0.75rem] muted">
+              {myTeam.members
+                .map((m) => (m.id === me.id ? "toi" : m.name.split(/\s+/)[0]))
+                .join(", ")}
+            </span>
+          </div>
           <span className="text-[0.7rem] leading-relaxed muted">
             {(() => {
               const mineSlots = slots

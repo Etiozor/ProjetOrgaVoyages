@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCars, getParticipants, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
-import { adminAddCar, declareCar, joinCar, leaveCar } from "@/lib/actions";
-import { CapacityStepper } from "@/components/CapacityStepper";
+import { declareCar, joinCar, leaveCar } from "@/lib/actions";
 import { CarManage } from "@/components/CarManage";
+import { CapacityBadge } from "@/components/CapacityBadge";
 import { Manage, ManageToggle } from "@/components/Manage";
 
 export default async function CarpoolPage({
@@ -71,15 +71,16 @@ export default async function CarpoolPage({
         const canManage = iOwnIt || identity.role === "admin";
         return (
           <Manage key={car.id}>
-          <div className="card flex flex-col gap-2.5">
+          <div
+            className="card flex flex-col gap-2.5"
+            style={{ borderLeft: `6px solid ${iAmIn ? "var(--accent)" : "var(--hair)"}` }}
+          >
             <div className="flex items-start justify-between gap-2.5">
               <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em] leading-[1.25] pt-[3px]">
                 {car.label}
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="tag" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
-                  {free > 0 ? `${free} libre${free > 1 ? "s" : ""}` : "Complet"}
-                </span>
+                <CapacityBadge free={free} fullLabel="Complet" />
                 {canManage && <ManageToggle label="Gérer cette voiture" />}
               </div>
             </div>
@@ -124,23 +125,6 @@ export default async function CarpoolPage({
           </Manage>
         );
       })}
-
-      {identity.role === "admin" && (
-        <form action={adminAddCar} className="card-dashed flex flex-col gap-2.5">
-          <input type="hidden" name="tripId" value={tripId} />
-          <p className="eyebrow">Admin · ajouter une voiture</p>
-          <p className="muted text-xs leading-relaxed">
-            Pour quelqu&apos;un qui n&apos;est pas encore sur l&apos;app.
-          </p>
-          <input name="label" className="input" placeholder="Nom (ex. Voiture de Max)" required />
-          <div className="flex gap-2">
-            <input name="departPlace" className="input" placeholder="Lieu de départ" />
-            <CapacityStepper name="seats" defaultValue={5} min={1} max={9} />
-          </div>
-          <input name="departTime" className="input" placeholder="Heure (ex. sam. 8h00)" />
-          <button className="btn self-end">Ajouter</button>
-        </form>
-      )}
     </div>
   );
 }
