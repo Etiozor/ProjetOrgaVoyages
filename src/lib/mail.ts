@@ -1,4 +1,11 @@
+import { setDefaultResultOrder } from "node:dns";
 import nodemailer, { type SentMessageInfo, type Transporter } from "nodemailer";
+
+// Railway (et autres hébergeurs sans egress IPv6) : depuis Node 18 la résolution
+// DNS est en « verbatim » et renvoie souvent l'IPv6 en premier. smtp.gmail.com
+// tombe alors sur une adresse IPv6 injoignable → ENETUNREACH sur le port 465.
+// On force l'IPv4 en tête pour tout le process.
+setDefaultResultOrder("ipv4first");
 
 // Transport SMTP (Gmail) en singleton — comme prisma, il survit au hot-reload
 // de dev. Si les variables SMTP ne sont pas définies, l'envoi est simplement
