@@ -21,6 +21,7 @@ import {
 } from "./db";
 import { isThemeId } from "./themes";
 import { isAnnounceFont } from "./announceFonts";
+import { sendAnnouncementEmail } from "./mail";
 import {
   clearSession,
   readSession,
@@ -267,22 +268,28 @@ export async function toggleTravelerView(formData: FormData) {
   refresh();
 }
 
-export async function updateTripToggles(formData: FormData) {
+// Réglages « Pages & permissions » de la maquette : chaque interrupteur s'applique
+// immédiatement (un seul flag basculé par appel). La liste blanche évite qu'un
+// champ de formulaire forgé ne modifie une colonne arbitraire.
+const TRIP_FLAGS = [
+  "allowMemberCars",
+  "allowMemberTents",
+  "pageCarpool",
+  "pageMeals",
+  "pageTents",
+  "pageGear",
+  "requireReaction",
+] as const;
+
+export async function toggleTripFlag(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   if (!(await requireAdmin(tripId))) return;
-  const flag = (name: string) => Boolean(formData.get(name));
-  await prisma.trip.update({
-    where: { id: tripId },
-    data: {
-      allowMemberCars: flag("allowMemberCars"),
-      allowMemberTents: flag("allowMemberTents"),
-      pageCarpool: flag("pageCarpool"),
-      pageMeals: flag("pageMeals"),
-      pageTents: flag("pageTents"),
-      pageGear: flag("pageGear"),
-      requireReaction: flag("requireReaction"),
-    },
-  });
+  const flag = String(formData.get("flag") ?? "");
+  if (!(TRIP_FLAGS as readonly string[]).includes(flag)) return;
+  const trip = await getTripById(tripId);
+  if (!trip) return;
+  const current = Boolean((trip as unknown as Record<string, boolean>)[flag]);
+  await prisma.trip.update({ where: { id: tripId }, data: { [flag]: !current } });
   refresh();
 }
 
@@ -334,18 +341,6 @@ export async function declareCar(formData: FormData) {
     where: { id: identity.effective.id },
     data: { carId: car.id },
   });
-  refresh();
-}
-
-export async function adminAddCar(formData: FormData) {
-  const tripId = Number(formData.get("tripId"));
-  if (!(await requireAdmin(tripId))) return;
-  const label = String(formData.get("label") ?? "").trim();
-  const departPlace = String(formData.get("departPlace") ?? "").trim();
-  const departTime = String(formData.get("departTime") ?? "").trim();
-  const seats = Number(formData.get("seats"));
-  if (!label || !(seats >= 1)) return;
-  await prisma.car.create({ data: { tripId, label, departPlace, departTime, seats } });
   refresh();
 }
 
@@ -403,16 +398,6 @@ export async function declareTent(formData: FormData) {
   refresh();
 }
 
-export async function adminAddTent(formData: FormData) {
-  const tripId = Number(formData.get("tripId"));
-  if (!(await requireAdmin(tripId))) return;
-  const label = String(formData.get("label") ?? "").trim();
-  const capacity = Number(formData.get("capacity"));
-  if (!label || !(capacity >= 1)) return;
-  await prisma.tent.create({ data: { tripId, label, capacity } });
-  refresh();
-}
-
 export async function updateTent(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   const identity = await tripIdentity(tripId);
@@ -466,7 +451,6 @@ export async function publishAnnouncement(formData: FormData) {
     data: { tripId, content, font, authorLabel, createdAt: new Date().toISOString() },
   });
   // ANN-05 — destinataires : le courriel du compte lié, sinon celui saisi par l'admin.
-  // L'envoi réel (fournisseur SMTP) reste à brancher ; en attendant il est journalisé.
   const recipients = await prisma.participant.findMany({
     where: { tripId, isActive: true },
     include: { user: { select: { email: true } } },
@@ -474,8 +458,20 @@ export async function publishAnnouncement(formData: FormData) {
   const emails = new Set(
     recipients.map((p) => p.user?.email ?? p.email).filter((e): e is string => Boolean(e))
   );
-  for (const email of emails) {
-    console.log(`[EMAIL] À: ${email} — Nouvelle annonce: ${content.slice(0, 60)}...`);
+  // On ne se notifie pas soi-même : l'auteur reçoit déjà une copie (champ « To »).
+  emails.delete(identity.user.email);
+  // L'e-mail ne doit jamais faire échouer la publication de l'annonce.
+  try {
+    const trip = await getTripById(tripId);
+    await sendAnnouncementEmail({
+      tripId,
+      tripName: trip?.name ?? "Voyage",
+      authorLabel,
+      content,
+      recipients: [...emails],
+    });
+  } catch (err) {
+    console.error("[EMAIL] Échec de l'envoi de la notification d'annonce :", err);
   }
   refresh();
 }

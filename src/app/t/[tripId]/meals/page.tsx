@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getCars,
@@ -10,7 +9,8 @@ import {
 import { requireTripIdentity } from "@/lib/session";
 import { MEALS, tripDays } from "@/lib/meals";
 import { SubmitButton } from "@/components/SubmitButton";
-import { MealPlanningGrid, type MealCell } from "@/components/MealPlanningGrid";
+import { type MealCell } from "@/components/MealPlanningGrid";
+import { MealPlanningBoard, type DayTile } from "@/components/MealPlanningBoard";
 import {
   addMealShopItem,
   bookMealSlot,
@@ -19,6 +19,11 @@ import {
   toggleMealShopItem,
   updateMealMenu,
 } from "@/lib/actions";
+
+// Initiales courtes d'un prénom (2 lettres) — même logique que la page Participants.
+function initials(name: string): string {
+  return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
+}
 
 export default async function MealsPage({
   params,
@@ -80,8 +85,6 @@ export default async function MealsPage({
   const bookedSlots = slots.filter((s) => s.carId).length;
   const coverAll = totalSlots > 0 && bookedSlots >= totalSlots;
 
-  const mealsHref = (di: number) => `/t/${tripId}/meals?day=${di}`;
-
   // Cases de la grille d'ensemble (service × jour), aplaties pour le composant client.
   const gridCells: MealCell[] = [];
   for (let mi = 0; mi < MEALS.length; mi++) {
@@ -108,6 +111,14 @@ export default async function MealsPage({
     }
   }
 
+  // Tuiles de sélection de jour, avec le compteur de créneaux pourvus par jour.
+  const dayTiles: DayTile[] = days.map((d) => ({
+    index: d.index,
+    label: d.label,
+    bookable: MEALS.filter((_, mi) => !slotOf(d.index, mi)?.disabled).length,
+    booked: MEALS.filter((_, mi) => slotOf(d.index, mi)?.carId).length,
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -118,91 +129,19 @@ export default async function MealsPage({
         </p>
       </div>
 
-      {/* Vue d'ensemble : grille services × jours */}
-      <div className="card flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between gap-2.5">
-          <span className="eyebrow">Planning du week-end</span>
-          <span
-            className="text-[0.7rem] whitespace-nowrap"
-            style={{ color: coverAll ? "var(--accent)" : "var(--warn-bg)" }}
-          >
-            {bookedSlots}/{totalSlots} créneaux pourvus
-          </span>
-        </div>
-        <MealPlanningGrid
-          tripId={tripId}
-          days={days.map((d) => ({ index: d.index, short: d.short }))}
-          meals={MEALS.map((m) => m.short)}
-          cells={gridCells}
-        />
-        <div className="flex flex-wrap gap-3 pt-0.5 text-[0.625rem] muted">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[2px]" style={{ background: "var(--accent)" }} />
-            mon équipe
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[2px]" style={{ background: "var(--accent-soft)" }} />
-            autre équipe
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-[2px]"
-              style={{ border: "1px dashed var(--warn-bg)" }}
-            />
-            libre
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-[2px]"
-              style={{ border: "1px solid var(--border)", opacity: 0.65 }}
-            />
-            N/A
-          </span>
-        </div>
-      </div>
-
-      {/* Sélecteur de jour */}
-      <div
-        className="grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
-      >
-        {days.map((d) => {
-          const active = d.index === selectedDay;
-          const dayBookable = MEALS.filter((_, mi) => !slotOf(d.index, mi)?.disabled).length;
-          const dayBooked = MEALS.filter((_, mi) => slotOf(d.index, mi)?.carId).length;
-          return (
-            <Link
-              key={d.index}
-              href={mealsHref(d.index)}
-              className="min-h-12 rounded-[3px] flex flex-col items-center justify-center gap-0.5"
-              style={{
-                background: active ? "var(--card)" : "transparent",
-                border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              }}
-            >
-              <span
-                className="font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.05em]"
-                style={{ color: active ? "var(--text)" : "var(--muted)" }}
-              >
-                {d.label}
-              </span>
-              <span
-                className="text-[0.625rem] tracking-[0.04em]"
-                style={{
-                  color:
-                    dayBookable === 0
-                      ? "var(--muted)"
-                      : dayBooked < dayBookable
-                        ? "var(--warn-bg)"
-                        : "var(--accent)",
-                }}
-              >
-                {dayBookable === 0 ? "N/A" : `${dayBooked}/${dayBookable}`}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      {/* Vue d'ensemble (grille services × jours) + sélecteur de jour :
+          un même filtre de pagination limite l'affichage des deux. */}
+      <MealPlanningBoard
+        tripId={tripId}
+        days={days.map((d) => ({ index: d.index, short: d.short }))}
+        meals={MEALS.map((m) => m.short)}
+        cells={gridCells}
+        tiles={dayTiles}
+        selectedDay={selectedDay}
+        bookedSlots={bookedSlots}
+        totalSlots={totalSlots}
+        coverAll={coverAll}
+      />
 
       {/* Créneaux du jour sélectionné */}
       {MEALS.map((meal, mi) => {
@@ -226,7 +165,7 @@ export default async function MealsPage({
             key={mi}
             id={`slot-${mi}`}
             className="card meal-slot scroll-mt-24 flex flex-col gap-3"
-            style={{ borderLeft: `3px solid ${edge}` }}
+            style={{ borderLeft: `6px solid ${edge}` }}
           >
             <div className="flex items-start justify-between gap-2.5">
               <div className="min-w-0">
@@ -238,16 +177,37 @@ export default async function MealsPage({
                 </div>
               </div>
               <span
-                className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
-                style={
-                  disabled
-                    ? { background: "var(--hair)", color: "var(--muted)" }
+                className="shrink-0 whitespace-nowrap uppercase"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.09em",
+                  padding: "4px 8px",
+                  borderRadius: 8,
+                  ...(disabled
+                    ? {
+                        background: "transparent",
+                        color: "var(--muted)",
+                        border: "1px solid var(--border)",
+                      }
                     : team
                       ? mine
-                        ? { background: "var(--accent)", color: "var(--bg)" }
-                        : { background: "var(--accent-soft)", color: "var(--accent)" }
-                      : { background: "rgba(244,162,89,.18)", color: "#a05a20" }
-                }
+                        ? {
+                            background: "var(--accent)",
+                            color: "var(--bg)",
+                            border: "1px solid var(--accent)",
+                          }
+                        : {
+                            background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+                            color: "var(--accent-text)",
+                            border: "1px solid color-mix(in srgb, var(--accent) 45%, transparent)",
+                          }
+                      : {
+                          background: "color-mix(in srgb, var(--warn-bg) 18%, transparent)",
+                          color: "#8a4a18",
+                          border: "1px solid color-mix(in srgb, var(--warn-bg) 45%, transparent)",
+                        }),
+                }}
               >
                 {disabled ? "N/A" : team ? (mine ? "Mon équipe" : "Réservé") : "Libre"}
               </span>
@@ -280,7 +240,7 @@ export default async function MealsPage({
             {team && (
               <div className="flex items-center gap-2.5">
                 <span
-                  className="w-8 h-8 shrink-0 rounded-[3px] flex items-center justify-center text-[0.7rem] font-bold"
+                  className="w-8 h-8 shrink-0 rounded-[8px] flex items-center justify-center text-[0.7rem] font-bold"
                   style={
                     mine
                       ? { background: "var(--accent)", color: "var(--bg)" }
@@ -353,7 +313,7 @@ export default async function MealsPage({
                         >
                           <span
                             aria-hidden
-                            className="w-[18px] h-[18px] shrink-0 rounded-[3px] flex items-center justify-center text-[0.7rem]"
+                            className="w-[18px] h-[18px] shrink-0 rounded-[8px] flex items-center justify-center text-[0.7rem]"
                             style={{
                               background: it.done ? "var(--accent)" : "transparent",
                               border: `1px solid ${it.done ? "var(--accent)" : "rgba(0,0,0,.22)"}`,
@@ -507,7 +467,33 @@ export default async function MealsPage({
       {myTeam && (
         <div className="card-dashed flex flex-col gap-1.5">
           <span className="eyebrow">Mon équipe</span>
-          <span className="text-[0.8rem] font-semibold">{myTeam.label}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1">
+              {myTeam.members.map((m) => {
+                const isMe = m.id === me.id;
+                return (
+                  <span
+                    key={m.id}
+                    aria-hidden
+                    title={m.name}
+                    className="w-6 h-6 shrink-0 rounded-[8px] flex items-center justify-center text-[0.6rem] font-bold"
+                    style={
+                      isMe
+                        ? { background: "var(--accent)", color: "var(--bg)" }
+                        : { background: "rgba(0,0,0,.06)", color: "var(--muted)" }
+                    }
+                  >
+                    {initials(m.name)}
+                  </span>
+                );
+              })}
+            </div>
+            <span className="text-[0.75rem] muted">
+              {myTeam.members
+                .map((m) => (m.id === me.id ? "toi" : m.name.split(/\s+/)[0]))
+                .join(", ")}
+            </span>
+          </div>
           <span className="text-[0.7rem] leading-relaxed muted">
             {(() => {
               const mineSlots = slots

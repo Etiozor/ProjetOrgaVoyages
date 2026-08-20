@@ -4,6 +4,9 @@ import { requireTripIdentity } from "@/lib/session";
 import { declareTent, joinTent, leaveTent } from "@/lib/actions";
 import { TentIcon } from "@/components/TentIcon";
 import { CapacityStepper } from "@/components/CapacityStepper";
+import { TentManage } from "@/components/TentManage";
+import { CapacityBadge } from "@/components/CapacityBadge";
+import { Manage, ManageToggle } from "@/components/Manage";
 
 function initials(name: string): string {
   return (name.trim().split(/\s+/)[0] || "?").slice(0, 2).toUpperCase();
@@ -44,7 +47,7 @@ export default async function TentsPage({
         const free = tent.capacity - occupants.length;
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = tent.ownerId === me.id;
-        const isFull = free <= 0;
+        const canManage = iOwnIt || identity.role === "admin";
         const size =
           tent.capacity <= 2 ? "petite" : tent.capacity <= 4 ? "familiale" : "grande";
         const descriptor =
@@ -54,21 +57,19 @@ export default async function TentsPage({
         }`;
 
         return (
-          <div key={tent.id} className="card flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-2.5">
-              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+          <Manage key={tent.id}>
+          <div
+            className="card flex flex-col gap-3"
+            style={{ borderLeft: `6px solid ${iAmIn ? "var(--accent)" : "var(--hair)"}` }}
+          >
+            <div className="flex items-start justify-between gap-2.5">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em] leading-[1.25] pt-[3px]">
                 {tent.label}
               </span>
-              <span
-                className="shrink-0 whitespace-nowrap text-[0.625rem] uppercase tracking-[0.1em] px-2 py-1 rounded-[3px]"
-                style={
-                  isFull
-                    ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }
-                    : { background: "var(--accent-soft)", color: "var(--accent)" }
-                }
-              >
-                {isFull ? "Complète" : `${free} libre${free > 1 ? "s" : ""}`}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <CapacityBadge free={free} fullLabel="Complète" />
+                {canManage && <ManageToggle label="Gérer cette tente" />}
+              </div>
             </div>
 
             {/* Grille de places : occupants + emplacements libres (cliquer pour rejoindre) */}
@@ -83,7 +84,7 @@ export default async function TentsPage({
                     style={{
                       width: 46,
                       height: 52,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       background: isMe ? "var(--accent)" : "var(--accent-soft)",
                       border: `1px solid ${
                         isMe ? "var(--accent)" : "color-mix(in srgb, var(--accent), transparent 50%)"
@@ -109,7 +110,7 @@ export default async function TentsPage({
                       style={{
                         width: 46,
                         height: 52,
-                        borderRadius: 3,
+                        borderRadius: 8,
                         border: "1px dashed rgba(0,0,0,.2)",
                         color: "var(--muted)",
                         background: "transparent",
@@ -126,7 +127,7 @@ export default async function TentsPage({
                     style={{
                       width: 46,
                       height: 52,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       border: "1px dashed rgba(0,0,0,.2)",
                       color: "var(--muted)",
                     }}
@@ -162,7 +163,16 @@ export default async function TentsPage({
                 </button>
               </form>
             )}
+
+            {canManage && (
+              <TentManage
+                tripId={tripId}
+                tent={{ id: tent.id, label: tent.label, capacity: tent.capacity }}
+                declaredBy={owner?.name ?? null}
+              />
+            )}
           </div>
+          </Manage>
         );
       })}
 
@@ -183,6 +193,7 @@ export default async function TentsPage({
           L&apos;admin a désactivé l&apos;ajout de tentes par les participants.
         </p>
       )}
+
     </div>
   );
 }

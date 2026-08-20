@@ -1,19 +1,11 @@
 import { redirect } from "next/navigation";
-import { getCars, getParticipants, getTents, getTripById } from "@/lib/db";
+import { getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { THEMES } from "@/lib/themes";
 import { SubmitButton } from "@/components/SubmitButton";
-import {
-  adminAddCar,
-  adminAddTent,
-  deleteCar,
-  deleteTent,
-  setTripTheme,
-  updateCar,
-  updateTent,
-  updateTripSettings,
-  updateTripToggles,
-} from "@/lib/actions";
+import { CopyCodeButton } from "@/components/CopyCodeButton";
+import { CapacityStepper } from "@/components/CapacityStepper";
+import { setTripTheme, toggleTripFlag, updateTripSettings } from "@/lib/actions";
 
 const TOGGLES: { name: string; label: string; hint?: string }[] = [
   { name: "pageCarpool", label: "Page Voitures" },
@@ -38,16 +30,13 @@ export default async function AdminPage({
   const identity = await requireTripIdentity(tripId);
   if (identity.role !== "admin") redirect(`/t/${tripId}`);
   const trip = (await getTripById(tripId))!;
-  const cars = await getCars(tripId);
-  const tents = await getTents(tripId);
-  const participants = await getParticipants(tripId);
   const tripFlags = trip as unknown as Record<string, boolean>;
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl">Administration</h1>
 
-      <div className="card flex flex-col gap-1.5 text-center">
+      <div className="card flex flex-col gap-2 text-center items-center">
         <p className="eyebrow">Code d&apos;invitation</p>
         <p
           className="font-[family-name:var(--font-oswald)] text-4xl font-bold"
@@ -55,24 +44,25 @@ export default async function AdminPage({
         >
           {trip.accessCode}
         </p>
-        <p className="muted text-xs">
+        <p className="muted text-xs leading-relaxed">
           Partage ce code au groupe — chacun l&apos;entre dans « Ajouter un voyage ».
         </p>
+        <CopyCodeButton code={trip.accessCode} />
       </div>
 
-      <form action={updateTripSettings} className="card flex flex-col gap-2">
+      <form action={updateTripSettings} className="card flex flex-col gap-2.5">
         <input type="hidden" name="tripId" value={tripId} />
         <p className="eyebrow">Réglages du voyage</p>
-        <label className="eyebrow">Nom</label>
+        <label className="eyebrow !normal-case !tracking-normal">Nom</label>
         <input name="name" className="input" defaultValue={trip.name} required />
-        <label className="eyebrow">Lieu</label>
+        <label className="eyebrow !normal-case !tracking-normal">Lieu</label>
         <input
           name="location"
           className="input"
           defaultValue={trip.location}
           placeholder="ex. Parc de la Mauricie"
         />
-        <label className="eyebrow">Lien Google Maps du lieu</label>
+        <label className="eyebrow !normal-case !tracking-normal">Lien Google Maps du lieu</label>
         <input
           name="locationUrl"
           type="url"
@@ -85,38 +75,69 @@ export default async function AdminPage({
           Avec un lien, le lieu devient cliquable dans « le voyage d&apos;un coup
           d&apos;œil » et ouvre la carte.
         </p>
-        <label className="eyebrow">Participants attendus</label>
-        <input
-          name="capacity"
-          type="number"
-          min={1}
-          defaultValue={trip.capacity}
-          className="input !w-28"
-        />
-        <SubmitButton className="btn self-end">Enregistrer</SubmitButton>
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="eyebrow !normal-case !tracking-normal">Participants attendus</label>
+            <CapacityStepper name="capacity" defaultValue={trip.capacity} min={1} max={60} />
+          </div>
+          <SubmitButton className="btn">Enregistrer</SubmitButton>
+        </div>
       </form>
 
-      <form action={updateTripToggles} className="card flex flex-col gap-2">
-        <input type="hidden" name="tripId" value={tripId} />
+      <div className="flex flex-col gap-2">
         <p className="eyebrow">Pages &amp; permissions</p>
-        <p className="muted text-xs">
+        <p className="muted text-xs leading-relaxed">
           Désactive les pages inutiles pour ce voyage, et choisis si les participants
-          peuvent déclarer eux-mêmes voitures et tentes.
+          peuvent déclarer eux-mêmes voitures et tentes. Appliqué immédiatement.
         </p>
-        {TOGGLES.map((t) => (
-          <label key={t.name} className="flex items-center gap-2 text-sm py-0.5">
-            <input
-              type="checkbox"
-              name={t.name}
-              defaultChecked={tripFlags[t.name]}
-              className="h-4 w-4 accent-[var(--accent)]"
-            />
-            {t.label}
-            {t.hint && <span className="muted text-xs">({t.hint})</span>}
-          </label>
-        ))}
-        <SubmitButton className="btn self-end">Enregistrer</SubmitButton>
-      </form>
+        {TOGGLES.map((t) => {
+          const on = Boolean(tripFlags[t.name]);
+          return (
+            <form key={t.name} action={toggleTripFlag}>
+              <input type="hidden" name="tripId" value={tripId} />
+              <input type="hidden" name="flag" value={t.name} />
+              <button
+                type="submit"
+                role="switch"
+                aria-checked={on}
+                className="w-full text-left flex items-center justify-between gap-3 px-3.5 rounded-[8px]"
+                style={{
+                  minHeight: 52,
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-[0.8rem]">{t.label}</span>
+                  {t.hint && <span className="muted text-[0.625rem]">{t.hint}</span>}
+                </span>
+                <span
+                  aria-hidden
+                  className="shrink-0 flex items-center p-0.5"
+                  style={{
+                    width: 42,
+                    height: 22,
+                    borderRadius: 8,
+                    background: on ? "var(--accent)" : "var(--card-raised)",
+                    border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                    justifyContent: on ? "flex-end" : "flex-start",
+                    transition: "background-color 0.15s ease",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 2,
+                      background: on ? "var(--bg)" : "var(--muted)",
+                    }}
+                  />
+                </span>
+              </button>
+            </form>
+          );
+        })}
+      </div>
 
       <div className="card flex flex-col gap-2">
         <p className="eyebrow">Thème du voyage</p>
@@ -132,7 +153,7 @@ export default async function AdminPage({
                   className="w-full px-3 text-sm font-semibold flex items-center justify-between gap-2"
                   style={{
                     minHeight: 48,
-                    borderRadius: 3,
+                    borderRadius: 8,
                     border: `1px solid ${active ? t.accent : "rgba(0,0,0,.12)"}`,
                     background: "var(--card-raised)",
                   }}
@@ -140,7 +161,7 @@ export default async function AdminPage({
                   <span className="flex items-center gap-2">
                     <span
                       className="inline-block shrink-0"
-                      style={{ height: 16, width: 16, borderRadius: 3, background: t.accent }}
+                      style={{ height: 16, width: 16, borderRadius: 8, background: t.accent }}
                     />
                     {t.label}
                   </span>
@@ -152,92 +173,11 @@ export default async function AdminPage({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-lg">Voitures</h2>
-        <p className="muted text-xs">
-          Les participants déclarent normalement leurs voitures eux-mêmes (page Voitures).
-          Ici tu peux tout modifier/supprimer, ou en ajouter pour quelqu&apos;un qui
-          n&apos;est pas sur l&apos;app.
-        </p>
-        {cars.map((car) => {
-          const owner = participants.find((p) => p.id === car.ownerId);
-          return (
-            <div key={car.id} className="card flex flex-col gap-2">
-              {owner && <p className="muted text-xs">Déclarée par {owner.name}</p>}
-              <form action={updateCar} className="flex flex-col gap-2">
-                <input type="hidden" name="tripId" value={tripId} />
-                <input type="hidden" name="carId" value={car.id} />
-                <input name="label" className="input" defaultValue={car.label} placeholder="Nom (ex. Voiture de Max)" required />
-                <div className="flex gap-2">
-                  <input name="departPlace" className="input" defaultValue={car.departPlace} placeholder="Lieu de départ" />
-                  <input name="departTime" className="input !w-32" defaultValue={car.departTime} placeholder="Heure" />
-                  <input name="seats" type="number" min={1} max={9} className="input !w-20" defaultValue={car.seats} title="Places totales" />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <SubmitButton className="btn-ghost !min-h-0 !py-1 text-xs" savedLabel="✓ Modifié">Modifier</SubmitButton>
-                </div>
-              </form>
-              <form action={deleteCar} className="self-end">
-                <input type="hidden" name="tripId" value={tripId} />
-                <input type="hidden" name="carId" value={car.id} />
-                <button className="btn-ghost !min-h-0 !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
-                  Supprimer
-                </button>
-              </form>
-            </div>
-          );
-        })}
-        <form action={adminAddCar} className="card flex flex-col gap-2">
-          <input type="hidden" name="tripId" value={tripId} />
-          <p className="eyebrow">Ajouter une voiture</p>
-          <input name="label" className="input" placeholder="Nom (ex. Voiture de Max)" required />
-          <div className="flex gap-2">
-            <input name="departPlace" className="input" placeholder="Lieu de départ" />
-            <input name="departTime" className="input !w-32" placeholder="Heure" />
-            <input name="seats" type="number" min={1} max={9} defaultValue={5} className="input !w-20" title="Places totales" />
-          </div>
-          <button className="btn self-end">Ajouter</button>
-        </form>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-lg">Tentes</h2>
-        <p className="muted text-xs">
-          Même principe : les participants déclarent leurs tentes (page Tentes), tu peux
-          tout gérer ici.
-        </p>
-        {tents.map((tent) => {
-          const owner = participants.find((p) => p.id === tent.ownerId);
-          return (
-            <div key={tent.id} className="card flex flex-col gap-2">
-              {owner && <p className="muted text-xs">Déclarée par {owner.name}</p>}
-              <form action={updateTent} className="flex gap-2">
-                <input type="hidden" name="tripId" value={tripId} />
-                <input type="hidden" name="tentId" value={tent.id} />
-                <input name="label" className="input" defaultValue={tent.label} placeholder="Nom (ex. Quechua 4p)" required />
-                <input name="capacity" type="number" min={1} max={12} className="input !w-20" defaultValue={tent.capacity} title="Places" />
-                <SubmitButton className="btn-ghost !min-h-0 !py-1 text-xs shrink-0" savedLabel="✓ Modifié">Modifier</SubmitButton>
-              </form>
-              <form action={deleteTent} className="self-end">
-                <input type="hidden" name="tripId" value={tripId} />
-                <input type="hidden" name="tentId" value={tent.id} />
-                <button className="btn-ghost !min-h-0 !py-1 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
-                  Supprimer
-                </button>
-              </form>
-            </div>
-          );
-        })}
-        <form action={adminAddTent} className="card flex flex-col gap-2">
-          <input type="hidden" name="tripId" value={tripId} />
-          <p className="eyebrow">Ajouter une tente</p>
-          <div className="flex gap-2">
-            <input name="label" className="input" placeholder="Nom (ex. Quechua 4p)" required />
-            <input name="capacity" type="number" min={1} max={12} defaultValue={4} className="input !w-20" title="Places" />
-          </div>
-          <button className="btn self-end">Ajouter</button>
-        </form>
-      </div>
+      <p className="muted text-xs leading-relaxed">
+        Les voitures et les tentes se gèrent désormais directement sur leurs pages —
+        chaque carte a un bouton « Gérer » pour la modifier, la supprimer ou en ajouter
+        une pour quelqu&apos;un hors de l&apos;app.
+      </p>
     </div>
   );
 }

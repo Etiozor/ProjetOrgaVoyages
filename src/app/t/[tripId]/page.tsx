@@ -10,6 +10,8 @@ import {
 } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { AnnouncementComposer } from "@/components/AnnouncementComposer";
+import { AnnouncementManage } from "@/components/AnnouncementManage";
+import { Manage, ManageToggle } from "@/components/Manage";
 import { RichText } from "@/components/RichText";
 import {
   deleteAnnouncement,
@@ -245,7 +247,7 @@ export default async function AnnouncementsPage({
             <span
               className="shrink-0 text-[0.7rem] font-bold tabular-nums px-2 py-1"
               style={{
-                borderRadius: 3,
+                borderRadius: 8,
                 color: "var(--accent)",
                 background: "var(--accent-soft)",
               }}
@@ -364,59 +366,47 @@ export default async function AnnouncementsPage({
             : "var(--warn-bg)";
 
         return (
+          <Manage key={a.id}>
           <div
-            key={a.id}
             className="card flex flex-col gap-3"
             style={{
-              borderLeft: `3px solid ${myReaction ? "var(--hair)" : "var(--warn-bg)"}`,
+              borderLeft: `6px solid ${myReaction ? "var(--hair)" : "var(--warn-bg)"}`,
             }}
           >
-            <div className="flex items-baseline justify-between gap-2">
-              <span
-                className="text-[0.7rem] font-semibold uppercase tracking-[0.12em]"
-                style={{ color: "var(--accent)" }}
-              >
-                {a.authorLabel}
-              </span>
-              <span className="muted text-[0.7rem]">
-                {new Date(a.createdAt).toLocaleString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span
+                  className="text-[0.7rem] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {a.authorLabel}
+                </span>
+                <span className="muted text-[0.7rem]">
+                  {new Date(a.createdAt).toLocaleString("fr-FR", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              {identity.role === "admin" && (
+                <ManageToggle label="Modifier l'annonce" variant="square" />
+              )}
             </div>
-            <RichText content={a.content} font={a.font} />
 
             {identity.role === "admin" && (
-              <details className="text-xs">
-                <summary className="muted cursor-pointer select-none">
-                  Modifier / supprimer
-                </summary>
-                <div className="flex flex-col gap-2 mt-2">
-                  <AnnouncementComposer
-                    tripId={tripId}
-                    action={updateAnnouncement}
-                    announcementId={a.id}
-                    defaultContent={a.content}
-                    defaultFont={a.font}
-                    submitLabel="Enregistrer"
-                    note="Sélectionne du texte puis Gras / Italique, puis Enregistrer."
-                  />
-                  <form action={deleteAnnouncement} className="self-end">
-                    <input type="hidden" name="tripId" value={tripId} />
-                    <input type="hidden" name="announcementId" value={a.id} />
-                    <button
-                      className="btn-ghost"
-                      style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
-                    >
-                      Supprimer l&apos;annonce
-                    </button>
-                  </form>
-                </div>
-              </details>
+              <AnnouncementManage
+                tripId={tripId}
+                announcementId={a.id}
+                defaultContent={a.content}
+                defaultFont={a.font}
+                updateAction={updateAnnouncement}
+                deleteAction={deleteAnnouncement}
+              />
             )}
+
+            <RichText content={a.content} font={a.font} />
 
             <div className="flex gap-1.5 flex-wrap">
               {EMOJIS.map((e) => (
@@ -429,7 +419,7 @@ export default async function AnnouncementsPage({
                     style={{
                       width: 44,
                       height: 38,
-                      borderRadius: 3,
+                      borderRadius: 8,
                       border: `1px solid ${
                         myReaction?.emoji === e ? "var(--accent)" : "rgba(0,0,0,.14)"
                       }`,
@@ -462,13 +452,13 @@ export default async function AnnouncementsPage({
                   {seen} / {total}
                 </span>
               </div>
-              <div style={{ height: 3, background: "var(--hair)", borderRadius: 3 }}>
+              <div style={{ height: 3, background: "var(--hair)", borderRadius: 8 }}>
                 <div
                   style={{
                     height: 3,
                     width: `${pct}%`,
                     background: seenColor,
-                    borderRadius: 3,
+                    borderRadius: 8,
                   }}
                 />
               </div>
@@ -485,7 +475,7 @@ export default async function AnnouncementsPage({
                       style={{
                         width: 30,
                         height: 30,
-                        borderRadius: 3,
+                        borderRadius: 8,
                         background: em ? "var(--accent-soft)" : "transparent",
                         border: `1px ${em ? "solid" : "dashed"} ${
                           em ? "var(--accent)" : "rgba(0,0,0,.22)"
@@ -502,7 +492,7 @@ export default async function AnnouncementsPage({
                 <span
                   className="self-start text-[0.65rem] font-semibold uppercase tracking-[0.08em] px-3 py-1.5"
                   style={{
-                    borderRadius: 3,
+                    borderRadius: 8,
                     border: "1px solid var(--warn-bg)",
                     color: "#a05a20",
                     background: "rgba(244,162,89,.15)",
@@ -514,6 +504,7 @@ export default async function AnnouncementsPage({
               )}
             </div>
           </div>
+          </Manage>
         );
       })}
     </div>

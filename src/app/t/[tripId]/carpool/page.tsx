@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getCars, getParticipants, getTripById } from "@/lib/db";
 import { requireTripIdentity } from "@/lib/session";
 import { declareCar, joinCar, leaveCar } from "@/lib/actions";
+import { CarManage } from "@/components/CarManage";
+import { CapacityBadge } from "@/components/CapacityBadge";
+import { Manage, ManageToggle } from "@/components/Manage";
 
 export default async function CarpoolPage({
   params,
@@ -65,15 +68,21 @@ export default async function CarpoolPage({
         const free = car.seats - occupants.length;
         const iAmIn = occupants.some((p) => p.id === me.id);
         const iOwnIt = car.ownerId === me.id;
+        const canManage = iOwnIt || identity.role === "admin";
         return (
-          <div key={car.id} className="card flex flex-col gap-2.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em]">
+          <Manage key={car.id}>
+          <div
+            className="card flex flex-col gap-2.5"
+            style={{ borderLeft: `6px solid ${iAmIn ? "var(--accent)" : "var(--hair)"}` }}
+          >
+            <div className="flex items-start justify-between gap-2.5">
+              <span className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase tracking-[0.04em] leading-[1.25] pt-[3px]">
                 {car.label}
               </span>
-              <span className="tag shrink-0" style={free === 0 ? { background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" } : undefined}>
-                {free > 0 ? `${free} libre${free > 1 ? "s" : ""}` : "Complet"}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <CapacityBadge free={free} fullLabel="Complet" />
+                {canManage && <ManageToggle label="Gérer cette voiture" />}
+              </div>
             </div>
             {(car.departPlace || car.departTime) && (
               <p className="text-[0.8rem] muted tracking-[0.03em]">
@@ -99,7 +108,21 @@ export default async function CarpoolPage({
                 </button>
               </form>
             )}
+            {canManage && (
+              <CarManage
+                tripId={tripId}
+                car={{
+                  id: car.id,
+                  label: car.label,
+                  departPlace: car.departPlace,
+                  departTime: car.departTime,
+                  seats: car.seats,
+                }}
+                declaredBy={owner?.name ?? null}
+              />
+            )}
           </div>
+          </Manage>
         );
       })}
     </div>

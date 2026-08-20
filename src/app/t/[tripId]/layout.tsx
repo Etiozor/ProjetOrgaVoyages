@@ -26,6 +26,13 @@ export default async function TripLayout({
   const pending = await getPendingCount(tripId, identity.effective.id);
   const participants = identity.role === "admin" ? await getParticipants(tripId) : [];
 
+  const identityLine =
+    identity.role === "admin"
+      ? identity.isImpersonating
+        ? `${identity.user.firstName} — agit pour ${identity.effective.name}`
+        : `${identity.user.firstName} · admin`
+      : `Connecté · ${identity.effective.name}`;
+
   const nav = [
     { href: `/t/${tripId}`, label: "Annonces" },
     { href: `/t/${tripId}/participants`, label: "Groupe" },
@@ -63,27 +70,40 @@ export default async function TripLayout({
         >
           <div className="mx-auto max-w-xl flex items-center gap-3 px-4 py-2.5">
             <Link
-              href="/"
-              className="btn-ghost shrink-0 !min-h-0 !px-2 !py-1.5"
-              title="Mes voyages"
+              href={`/t/${tripId}`}
+              className="shrink-0 flex items-center justify-center rounded-[8px]"
+              style={{ width: 34, height: 34, border: "1px solid var(--border)", color: "var(--text)" }}
+              title="Accueil du voyage"
+              aria-label="Accueil du voyage"
             >
-              ←
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4 11.2L12 4.5l8 6.7" />
+                <path d="M6.2 12.6V19.5h11.6v-6.9" />
+                <path d="M10.2 19.5v-4.4h3.6v4.4" />
+              </svg>
             </Link>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 text-center">
               <div className="font-[family-name:var(--font-oswald)] text-[1.05rem] font-semibold uppercase leading-tight tracking-[0.04em] truncate">
                 {trip.name}
               </div>
               <div className="text-[0.7rem] tracking-[0.04em] muted truncate">
-                {identity.role === "admin"
-                  ? identity.isImpersonating
-                    ? `${identity.user.firstName} — agit pour ${identity.effective.name}`
-                    : `${identity.user.firstName} · admin`
-                  : `Connecté · ${identity.effective.name}`}
+                {identityLine}
               </div>
             </div>
             <TripMenu
               tripId={tripId}
               tripName={trip.name}
+              identityLine={identityLine}
               accessCode={trip.accessCode}
               isAdmin={identity.role === "admin"}
               isActuallyAdmin={identity.isActuallyAdmin}
@@ -93,26 +113,63 @@ export default async function TripLayout({
           </div>
 
           {identity.role === "admin" && (
-            <form
-              action={adminActAs}
-              className="mx-auto max-w-xl flex items-center gap-2 px-4 pb-2.5"
-            >
+            <form action={adminActAs} className="mx-auto max-w-xl px-4 pb-2.5">
               <input type="hidden" name="tripId" value={tripId} />
-              <select
-                name="pid"
-                className="input !min-h-0 !py-1.5 text-sm"
-                defaultValue={identity.isImpersonating ? identity.effective.id : 0}
+              <div
+                className="flex items-center gap-2 rounded-[8px] py-1 pl-2.5 pr-1"
+                style={{
+                  background: identity.isImpersonating
+                    ? "var(--accent-soft)"
+                    : "var(--card-raised)",
+                  border: `1px solid ${
+                    identity.isImpersonating ? "var(--accent)" : "var(--border)"
+                  }`,
+                }}
               >
-                <option value={0}>— Agir en mon nom —</option>
-                {participants
-                  .filter((p) => p.id !== identity.participant.id)
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      Agir en tant que {p.name}
-                    </option>
-                  ))}
-              </select>
-              <button className="btn-ghost shrink-0 !min-h-0 !py-1.5">OK</button>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: identity.isImpersonating ? "var(--accent)" : "var(--muted)" }}
+                >
+                  <circle cx="8.5" cy="9" r="2.5" />
+                  <path d="M4 18c0-2.6 2-4.2 4.5-4.2s4.5 1.6 4.5 4.2" />
+                  <path d="M15.5 8.6a2.2 2.2 0 0 1 0 4.4" />
+                  <path d="M15.2 14.4c2.2.2 3.6 1.7 3.6 3.6" />
+                </svg>
+                <span
+                  className="shrink-0 text-[0.6rem] font-medium uppercase tracking-[0.1em]"
+                  style={{
+                    color: identity.isImpersonating ? "var(--accent-text)" : "var(--muted)",
+                  }}
+                >
+                  Agir en tant que
+                </span>
+                <select
+                  name="pid"
+                  aria-label="Agir en tant que"
+                  className="flex-1 min-w-0 bg-transparent text-sm py-1 focus:outline-none"
+                  style={{ color: "var(--text)" }}
+                  defaultValue={identity.isImpersonating ? identity.effective.id : 0}
+                >
+                  <option value={0}>Moi-même · {identity.user.firstName}</option>
+                  {participants
+                    .filter((p) => p.id !== identity.participant.id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+                <button className="btn shrink-0 !min-h-0 !px-3 !py-1.5 !text-xs">OK</button>
+              </div>
             </form>
           )}
         </div>

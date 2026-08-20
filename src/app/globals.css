@@ -18,13 +18,15 @@
   --muted: #8c8270;         /* sable grillé — texte secondaire */
   --border: rgba(0, 0, 0, 0.12);
   --hair: rgba(0, 0, 0, 0.08);
-  --accent: #5b8e7d;        /* sarcelle — accent de marque (rendu maquette « TRIP'IN Mobile ») */
+  --accent: #5b8e7d;        /* sarcelle — accent de marque (remplissages, barres, boutons) */
   --accent-soft: rgba(91, 142, 125, 0.14);
+  --accent-text: color-mix(in srgb, var(--accent) 74%, #000); /* teal foncé — texte accent / liens / étiquettes */
+  --danger-text: color-mix(in srgb, var(--danger) 82%, #000);
   --warn-bg: #f4a259;       /* orange brûlé — bandeaux d'action */
   --warn-text: #2b2b2b;
   --danger: #bc4b51;
   --ok: #8cb369;            /* vert — confirmations */
-  --radius: 3px;
+  --radius: 8px;
 }
 
 html[data-theme="dark"] {
@@ -38,6 +40,8 @@ html[data-theme="dark"] {
   --hair: rgba(255, 255, 255, 0.07);
   --accent: #7fb8a4;
   --accent-soft: rgba(127, 184, 164, 0.18);
+  --accent-text: color-mix(in srgb, var(--accent) 82%, #fff);
+  --danger-text: color-mix(in srgb, var(--danger) 82%, #fff);
   --warn-bg: #d98a3f;
   --warn-text: #1a1712;
   --danger: #e4787d;

@@ -111,7 +111,11 @@ export default async function ParticipantsPage({
               ? "En attente"
               : "Pas sur l'app";
           return (
-            <div key={p.id} className="card !py-3.5 flex items-start gap-3">
+            <div
+              key={p.id}
+              className="card !py-3.5 flex items-start gap-3"
+              style={{ borderLeft: `6px solid ${isMe ? "var(--accent)" : "var(--hair)"}` }}
+            >
               {/* Avatar : photo de profil si présente, sinon initiales (sarcelle si c'est toi) */}
               <span
                 aria-hidden
@@ -119,7 +123,7 @@ export default async function ParticipantsPage({
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: 3,
+                  borderRadius: 8,
                   background: photo
                     ? "transparent"
                     : isMe
@@ -146,14 +150,14 @@ export default async function ParticipantsPage({
                   <span className="font-semibold text-sm">{p.name}</span>
                   {isAdminRole && (
                     <span
-                      className="rounded-[3px] px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                      className="rounded-[8px] px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                     >
                       Admin
                     </span>
                   )}
                   <span
-                    className="rounded-[3px] px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]"
+                    className="rounded-[8px] px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.1em]"
                     style={
                       p.isConfirmed
                         ? { background: "rgba(140,179,105,.15)", color: "#5a7a3a" }
@@ -187,7 +191,7 @@ export default async function ParticipantsPage({
                 {/* Régime alimentaire */}
                 {p.dietary && (
                   <span
-                    className="self-start rounded-[3px] px-[7px] py-[3px] text-[0.7rem]"
+                    className="self-start rounded-[8px] px-[7px] py-[3px] text-[0.7rem]"
                     style={{ background: "rgba(140,179,105,.15)", color: "#5a7a3a" }}
                   >
                     {p.dietary}
