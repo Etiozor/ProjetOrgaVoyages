@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getCars,
@@ -10,7 +9,8 @@ import {
 import { requireTripIdentity } from "@/lib/session";
 import { MEALS, tripDays } from "@/lib/meals";
 import { SubmitButton } from "@/components/SubmitButton";
-import { MealPlanningGrid, type MealCell } from "@/components/MealPlanningGrid";
+import { type MealCell } from "@/components/MealPlanningGrid";
+import { MealPlanningBoard, type DayTile } from "@/components/MealPlanningBoard";
 import {
   addMealShopItem,
   bookMealSlot,
@@ -85,8 +85,6 @@ export default async function MealsPage({
   const bookedSlots = slots.filter((s) => s.carId).length;
   const coverAll = totalSlots > 0 && bookedSlots >= totalSlots;
 
-  const mealsHref = (di: number) => `/t/${tripId}/meals?day=${di}`;
-
   // Cases de la grille d'ensemble (service × jour), aplaties pour le composant client.
   const gridCells: MealCell[] = [];
   for (let mi = 0; mi < MEALS.length; mi++) {
@@ -113,6 +111,14 @@ export default async function MealsPage({
     }
   }
 
+  // Tuiles de sélection de jour, avec le compteur de créneaux pourvus par jour.
+  const dayTiles: DayTile[] = days.map((d) => ({
+    index: d.index,
+    label: d.label,
+    bookable: MEALS.filter((_, mi) => !slotOf(d.index, mi)?.disabled).length,
+    booked: MEALS.filter((_, mi) => slotOf(d.index, mi)?.carId).length,
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -123,91 +129,19 @@ export default async function MealsPage({
         </p>
       </div>
 
-      {/* Vue d'ensemble : grille services × jours */}
-      <div className="card flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between gap-2.5">
-          <span className="eyebrow">Planning du séjour</span>
-          <span
-            className="text-[0.7rem] whitespace-nowrap"
-            style={{ color: coverAll ? "var(--accent)" : "var(--warn-bg)" }}
-          >
-            {bookedSlots}/{totalSlots} créneaux pourvus
-          </span>
-        </div>
-        <MealPlanningGrid
-          tripId={tripId}
-          days={days.map((d) => ({ index: d.index, short: d.short }))}
-          meals={MEALS.map((m) => m.short)}
-          cells={gridCells}
-        />
-        <div className="flex flex-wrap gap-3 pt-0.5 text-[0.625rem] muted">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[2px]" style={{ background: "var(--accent)" }} />
-            mon équipe
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[2px]" style={{ background: "var(--accent-soft)" }} />
-            autre équipe
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-[2px]"
-              style={{ border: "1px dashed var(--warn-bg)" }}
-            />
-            libre
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-[2px]"
-              style={{ border: "1px solid var(--border)", opacity: 0.65 }}
-            />
-            N/A
-          </span>
-        </div>
-      </div>
-
-      {/* Sélecteur de jour */}
-      <div
-        className="grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
-      >
-        {days.map((d) => {
-          const active = d.index === selectedDay;
-          const dayBookable = MEALS.filter((_, mi) => !slotOf(d.index, mi)?.disabled).length;
-          const dayBooked = MEALS.filter((_, mi) => slotOf(d.index, mi)?.carId).length;
-          return (
-            <Link
-              key={d.index}
-              href={mealsHref(d.index)}
-              className="min-h-12 rounded-[8px] flex flex-col items-center justify-center gap-0.5"
-              style={{
-                background: active ? "var(--card)" : "transparent",
-                border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              }}
-            >
-              <span
-                className="font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.05em]"
-                style={{ color: active ? "var(--text)" : "var(--muted)" }}
-              >
-                {d.label}
-              </span>
-              <span
-                className="text-[0.625rem] tracking-[0.04em]"
-                style={{
-                  color:
-                    dayBookable === 0
-                      ? "var(--muted)"
-                      : dayBooked < dayBookable
-                        ? "var(--warn-bg)"
-                        : "var(--accent)",
-                }}
-              >
-                {dayBookable === 0 ? "N/A" : `${dayBooked}/${dayBookable}`}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+      {/* Vue d'ensemble (grille services × jours) + sélecteur de jour :
+          un même filtre de pagination limite l'affichage des deux. */}
+      <MealPlanningBoard
+        tripId={tripId}
+        days={days.map((d) => ({ index: d.index, short: d.short }))}
+        meals={MEALS.map((m) => m.short)}
+        cells={gridCells}
+        tiles={dayTiles}
+        selectedDay={selectedDay}
+        bookedSlots={bookedSlots}
+        totalSlots={totalSlots}
+        coverAll={coverAll}
+      />
 
       {/* Créneaux du jour sélectionné */}
       {MEALS.map((meal, mi) => {

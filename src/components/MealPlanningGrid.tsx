@@ -25,6 +25,10 @@ interface Props {
   cells: MealCell[];
   /** Nombre de jours affichés par page */
   pageSize?: number;
+  /** Index du premier jour affiché — piloté par le parent quand fourni */
+  start?: number;
+  /** Callback appelé quand la page change (mode piloté) */
+  onStartChange?: (start: number) => void;
 }
 
 function cellStyle(kind: MealCellKind): React.CSSProperties {
@@ -51,9 +55,20 @@ function cellStyle(kind: MealCellKind): React.CSSProperties {
 
 // Grille d'ensemble du planning. Au lieu de scroller horizontalement quand le
 // séjour dépasse quelques jours, on pagine les colonnes avec des boutons ‹ ›.
-export function MealPlanningGrid({ tripId, days, meals, cells, pageSize = 3 }: Props) {
+export function MealPlanningGrid({
+  tripId,
+  days,
+  meals,
+  cells,
+  pageSize = 3,
+  start: startProp,
+  onStartChange,
+}: Props) {
   const paginate = days.length > pageSize;
-  const [start, setStart] = useState(0);
+  const [startState, setStartState] = useState(0);
+  // Mode piloté (start fourni par le parent) ou autonome (état interne).
+  const start = startProp ?? startState;
+  const setStart = onStartChange ?? setStartState;
   const maxStart = Math.max(0, days.length - pageSize);
   const clampedStart = Math.min(start, maxStart);
   const windowDays = paginate ? days.slice(clampedStart, clampedStart + pageSize) : days;
@@ -101,10 +116,10 @@ export function MealPlanningGrid({ tripId, days, meals, cells, pageSize = 3 }: P
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => setStart((s) => Math.max(0, Math.min(s, maxStart) - pageSize))}
+            onClick={() => setStart(Math.max(0, clampedStart - pageSize))}
             disabled={clampedStart === 0}
             aria-label="Jours précédents"
-            className="btn-ghost !min-h-0 !py-1 !px-2.5 disabled:opacity-40"
+            className="btn !min-h-0 !py-1 !px-3 disabled:opacity-40"
           >
             ‹
           </button>
@@ -113,10 +128,10 @@ export function MealPlanningGrid({ tripId, days, meals, cells, pageSize = 3 }: P
           </span>
           <button
             type="button"
-            onClick={() => setStart((s) => Math.min(maxStart, Math.min(s, maxStart) + pageSize))}
+            onClick={() => setStart(Math.min(maxStart, clampedStart + pageSize))}
             disabled={end >= days.length}
             aria-label="Jours suivants"
-            className="btn-ghost !min-h-0 !py-1 !px-2.5 disabled:opacity-40"
+            className="btn !min-h-0 !py-1 !px-3 disabled:opacity-40"
           >
             ›
           </button>
