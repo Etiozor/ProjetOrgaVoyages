@@ -1,43 +1,70 @@
-import { setDefaultResultOrder } from "node:dns";
-import nodemailer, { type SentMessageInfo, type Transporter } from "nodemailer";
+// Envoi via l'API HTTPS de Resend (port 443), et non plus en SMTP.
+//
+// Pourquoi : Railway bloque les ports SMTP sortants (25/465/587 → TIMEOUT) ;
+// seul le 443 sort. On l'a prouvé côté réseau (www.google.com:443 OK en 3 ms,
+// tous les ports SMTP en timeout), donc aucun réglage nodemailer ne pouvait
+// marcher. L'API HTTPS règle le blocage ET la délivrabilité d'un coup.
+//
+// Variables d'environnement :
+//   RESEND_API_KEY  requis pour activer l'envoi (sinon désactivé proprement)
+//   MAIL_FROM       expéditeur, ex. `TRIP'IN <no-reply@ton-domaine.fr>`.
+//                   Par défaut `onboarding@resend.dev` (test : ne délivre qu'à
+//                   l'adresse du compte Resend tant que le domaine n'est pas
+//                   vérifié).
+//   MAIL_OWNER      adresse visible en `To:` des annonces (les participants
+//                   restent en copie cachée). Défaut : l'adresse de MAIL_FROM.
+//   APP_URL         base absolue pour les liens (inchangé).
 
-// Railway (et autres hébergeurs sans egress IPv6) : depuis Node 18 la résolution
-// DNS est en « verbatim » et renvoie souvent l'IPv6 en premier. smtp.gmail.com
-// tombe alors sur une adresse IPv6 injoignable → ENETUNREACH sur le port 465.
-// On force l'IPv4 en tête pour tout le process.
-setDefaultResultOrder("ipv4first");
+const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const DEFAULT_FROM = "TRIP'IN <onboarding@resend.dev>";
 
-// Transport SMTP (Gmail) en singleton — comme prisma, il survit au hot-reload
-// de dev. Si les variables SMTP ne sont pas définies, l'envoi est simplement
-// désactivé (l'app continue de tourner, on journalise à la place).
-const g = globalThis as unknown as { __tripinMailer?: Transporter | null };
-
-function getTransport(): Transporter | null {
-  if (g.__tripinMailer !== undefined) return g.__tripinMailer;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!user || !pass) {
-    g.__tripinMailer = null;
-    return null;
-  }
-  // Par défaut : Gmail (host/port/secure pré-configurés, `pass` = mot de passe
-  // d'application). Si SMTP_HOST est fourni, on l'utilise à la place — utile
-  // pour un autre fournisseur SMTP ou un compte de test.
-  const host = process.env.SMTP_HOST;
-  g.__tripinMailer = host
-    ? nodemailer.createTransport({
-        host,
-        port: Number(process.env.SMTP_PORT) || 587,
-        secure: Number(process.env.SMTP_PORT) === 465,
-        auth: { user, pass },
-      })
-    : nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
-  return g.__tripinMailer;
+/** Vrai si l'envoi d'e-mails est configuré (clé Resend présente). */
+export function mailEnabled(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
 }
 
-/** Vrai si l'envoi d'e-mails est configuré (variables SMTP présentes). */
-export function mailEnabled(): boolean {
-  return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+function fromAddress(): string {
+  return process.env.MAIL_FROM || DEFAULT_FROM;
+}
+
+/** Extrait l'adresse nue d'un « Nom <adresse> » (ou renvoie tel quel). */
+function bareAddress(addr: string): string {
+  const m = addr.match(/<([^>]+)>/);
+  return (m ? m[1] : addr).trim();
+}
+
+interface ResendPayload {
+  to: string[];
+  bcc?: string[];
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/**
+ * Poste un e-mail à l'API Resend. Lève en cas d'échec (l'appelant enveloppe
+ * dans un try/catch pour ne jamais casser l'action métier). Renvoie l'id du
+ * message renvoyé par Resend, ou null si l'envoi est désactivé.
+ */
+async function sendViaResend(payload: ResendPayload): Promise<string | null> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+
+  const res = await fetch(RESEND_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: fromAddress(), ...payload }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status} ${res.statusText}: ${detail}`);
+  }
+  const data = (await res.json().catch(() => null)) as { id?: string } | null;
+  return data?.id ?? null;
 }
 
 // ---------- Rendu du contenu ----------
@@ -82,11 +109,10 @@ export interface AnnouncementMail {
  */
 export async function sendAnnouncementEmail(
   mail: AnnouncementMail
-): Promise<SentMessageInfo | null> {
-  const transport = getTransport();
-  if (!transport) {
+): Promise<string | null> {
+  if (!mailEnabled()) {
     console.log(
-      `[EMAIL désactivé] « ${mail.tripName} » → ${mail.recipients.length} destinataire(s) (SMTP non configuré)`
+      `[EMAIL désactivé] « ${mail.tripName} » → ${mail.recipients.length} destinataire(s) (Resend non configuré)`
     );
     return null;
   }
@@ -95,7 +121,8 @@ export async function sendAnnouncementEmail(
     return null;
   }
 
-  const from = process.env.SMTP_USER!;
+  // Adresse visible en To: ; les participants restent en copie cachée.
+  const owner = process.env.MAIL_OWNER || bareAddress(fromAddress());
   const appUrl = (process.env.APP_URL ?? "").replace(/\/+$/, "");
   const link = appUrl ? `${appUrl}/t/${mail.tripId}` : "";
 
@@ -122,20 +149,17 @@ export async function sendAnnouncementEmail(
       }
     </div>`;
 
-  const info = await transport.sendMail({
-    from: `"TRIP'IN" <${from}>`,
-    // Le compte d'envoi en visible ; les participants en copie cachée.
-    to: from,
+  const id = await sendViaResend({
+    to: [owner],
     bcc: mail.recipients,
     subject: `Nouvelle annonce — ${mail.tripName}`,
     text: textLines.join("\n"),
     html,
   });
   console.log(
-    `[EMAIL] Annonce « ${mail.tripName} » envoyée à ${mail.recipients.length} destinataire(s) — id ${info.messageId}` +
-      (info.rejected?.length ? ` (rejetés: ${info.rejected.join(", ")})` : "")
+    `[EMAIL] Annonce « ${mail.tripName} » envoyée à ${mail.recipients.length} destinataire(s) — id ${id}`
   );
-  return info;
+  return id;
 }
 
 /**
@@ -149,12 +173,10 @@ export async function sendMagicLinkEmail(opts: {
   url: string;
 }): Promise<void> {
   const { to, firstName, url } = opts;
-  const transport = getTransport();
-  if (!transport) {
+  if (!mailEnabled()) {
     console.log(`[EMAIL désactivé] Magic link pour ${to} : ${url}`);
     return;
   }
-  const from = process.env.SMTP_USER!;
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#222">
       <p style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin:0 0 4px">TRIP'IN · Connexion</p>
@@ -162,9 +184,8 @@ export async function sendMagicLinkEmail(opts: {
       <p style="margin:0 0 16px"><a href="${url}" style="display:inline-block;background:#8cb369;color:#fff;text-decoration:none;padding:12px 22px;border-radius:4px;font-size:0.95rem">Me connecter</a></p>
       <p style="font-size:0.75rem;color:#888;margin:0">Si tu n'es pas à l'origine de cette demande, ignore ce message.</p>
     </div>`;
-  await transport.sendMail({
-    from: `"TRIP'IN" <${from}>`,
-    to,
+  await sendViaResend({
+    to: [to],
     subject: "Ton lien de connexion TRIP'IN",
     text: `Salut ${firstName},\n\nClique pour te connecter (lien valable 20 minutes) :\n${url}\n\nSi tu n'es pas à l'origine de cette demande, ignore ce message.`,
     html,

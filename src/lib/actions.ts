@@ -341,6 +341,25 @@ export async function updateTripSettings(formData: FormData) {
   refresh();
 }
 
+/**
+ * Suppression définitive d'un voyage (ADM). Réservé à l'admin. Porte de
+ * validation côté serveur, dernier rempart si les gardes de l'UI sont
+ * contournées : le nom saisi doit correspondre exactement au nom du voyage.
+ * La suppression cascade sur tout ce qui dépend du voyage (participants,
+ * annonces, voitures, tentes, matos, repas — FK onDelete: Cascade).
+ */
+export async function deleteTrip(formData: FormData) {
+  const tripId = Number(formData.get("tripId"));
+  if (!(await requireAdmin(tripId))) return;
+  const trip = await getTripById(tripId);
+  if (!trip) return;
+  const confirmName = String(formData.get("confirmName") ?? "").trim();
+  if (confirmName !== trip.name) redirect(`/t/${tripId}/admin?del=mismatch`);
+  await prisma.trip.delete({ where: { id: tripId } });
+  refresh();
+  redirect("/");
+}
+
 export async function setTripTheme(formData: FormData) {
   const tripId = Number(formData.get("tripId"));
   if (!(await requireAdmin(tripId))) return;

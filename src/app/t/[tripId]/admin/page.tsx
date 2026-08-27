@@ -5,6 +5,7 @@ import { THEMES } from "@/lib/themes";
 import { SubmitButton } from "@/components/SubmitButton";
 import { CopyCodeButton } from "@/components/CopyCodeButton";
 import { CapacityStepper } from "@/components/CapacityStepper";
+import { DeleteTripSection } from "@/components/DeleteTripSection";
 import { setTripTheme, toggleTripFlag, updateTripSettings } from "@/lib/actions";
 
 const TOGGLES: { name: string; label: string; hint?: string }[] = [
@@ -23,14 +24,17 @@ const TOGGLES: { name: string; label: string; hint?: string }[] = [
 
 export default async function AdminPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tripId: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const tripId = Number((await params).tripId);
   const identity = await requireTripIdentity(tripId);
   if (identity.role !== "admin") redirect(`/t/${tripId}`);
   const trip = (await getTripById(tripId))!;
   const tripFlags = trip as unknown as Record<string, boolean>;
+  const delError = (await searchParams).del === "mismatch";
 
   return (
     <div className="flex flex-col gap-4">
@@ -178,6 +182,8 @@ export default async function AdminPage({
         chaque carte a un bouton « Gérer » pour la modifier, la supprimer ou en ajouter
         une pour quelqu&apos;un hors de l&apos;app.
       </p>
+
+      <DeleteTripSection tripId={tripId} tripName={trip.name} mismatch={delError} />
     </div>
   );
 }

@@ -14,12 +14,15 @@ export function SubmitButton({
   savedLabel = "✓ Enregistré",
   pendingLabel = "Enregistrement…",
   style,
+  disabled = false,
 }: {
   children: ReactNode;
   className?: string;
   savedLabel?: string;
   pendingLabel?: string;
   style?: CSSProperties;
+  /** Désactive le bouton en dehors de l'état « en cours » (ex. porte de validation). */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   const [justSaved, setJustSaved] = useState(false);
@@ -39,7 +42,7 @@ export function SubmitButton({
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       data-saved={justSaved ? "" : undefined}
       className={`${className} submit-btn`}
       style={style}
