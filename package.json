@@ -9,7 +9,9 @@
     "start": "next start",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "graph": "node scripts/generate-graph.mjs",
+    "graph:install-hook": "node scripts/install-hook.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
