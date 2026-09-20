@@ -30,3 +30,16 @@ La base SQLite (`camping.db`) est créée et seedée automatiquement au premier 
 | i18n FR/EN | FR uniquement | Ajouter la couche i18n. |
 | Envoi d'email réel (ANN-05) | Simulé en console serveur | Brancher un fournisseur SMTP/transactionnel. |
 | Cookie de session signé | Cookie JSON non signé | Signer/chiffrer la session avant tout déploiement public. |
+
+## Carte du projet (vault Obsidian)
+
+Un coffre Obsidian dans `../TRIPIN-Vault` représente le projet sous forme de graphe de notes reliées (domaine, pages, composants, lib, infra + roadmap, requirements, décisions, tickets).
+
+- `npm run graph` — régénère les notes de **code** à partir du source (structure et dépendances réelles). Chaque note a un bloc `AUTO` régénéré et un bloc `LIBRE` préservé.
+- Un hook git **post-commit** relance ça automatiquement à chaque commit.
+
+> ⚠️ **Après un clone** : le hook vit dans `.git/hooks/` (non versionné). Relance-le une fois avec :
+>
+> ```bash
+> npm run graph:install-hook
+> ```
